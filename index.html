@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ดมยาแคร์ | AnesCare</title>
+<meta name="description" content="แอปเตรียมความพร้อมก่อน-หลังการระงับความรู้สึก">
+<meta name="theme-color" content="#52048A">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple-900:#3A0362;
+    --purple-800:#52048A;
+    --purple-700:#6A0FAE;
+    --purple-500:#8B5EA2;
+    --purple-200:#E4D4F2;
+    --purple-100:#F0E7F8;
+    --lavender-bg:#F7F5FB;
+    --teal-500:#2DBFA7;
+    --teal-100:#DEF6F1;
+    --pink-500:#F472B6;
+    --pink-100:#FDE6F0;
+    --red-600:#DC2626;
+    --red-100:#FDECEC;
+    --amber-500:#F59E0B;
+    --ink-900:#231536;
+    --ink-600:#5B4A72;
+    --ink-400:#8E7FA3;
+    --white:#FFFFFF;
+    --radius-lg:22px;
+    --radius-md:16px;
+    --radius-sm:10px;
+    --shadow-card: 0 6px 20px rgba(82,4,138,0.08);
+    --shadow-pop: 0 12px 32px rgba(82,4,138,0.18);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Sarabun',sans-serif;
+    background:var(--lavender-bg);
+    color:var(--ink-900);
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior-y:contain;
+  }
+  h1,h2,h3,.display{font-family:'Kanit',sans-serif; margin:0;}
+  button{font-family:inherit;}
+  ::selection{background:var(--purple-200);}
+
+  /* App shell */
+  .app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--lavender-bg);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+
+  /* Top bar */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(135deg,var(--purple-800),var(--purple-700));
+    color:#fff;
+    padding:18px 20px 22px;
+    border-radius:0 0 26px 26px;
+    box-shadow:var(--shadow-pop);
+  }
+  .topbar .brand{display:flex; align-items:center; gap:10px;}
+  .topbar .brand img{width:34px;height:34px;border-radius:9px; box-shadow:0 2px 6px rgba(0,0,0,.25);}
+  .topbar .brand span{font-family:'Kanit'; font-weight:600; font-size:19px; letter-spacing:.2px;}
+  .topbar .sub{font-size:12.5px; opacity:.85; margin-top:2px;}
+
+  /* Views */
+  .views{flex:1; padding:16px 16px 100px;}
+  .view{display:none; animation:fadeUp .25s ease;}
+  .view.active{display:block;}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .card{
+    background:var(--white);
+    border-radius:var(--radius-md);
+    padding:16px;
+    box-shadow:var(--shadow-card);
+    margin-bottom:14px;
+  }
+  .card h3{font-size:15.5px; color:var(--purple-800); margin-bottom:8px;}
+  .muted{color:var(--ink-600); font-size:13.5px; line-height:1.6;}
+  .eyebrow{
+    font-size:11.5px; font-weight:600; letter-spacing:.6px; color:var(--purple-700);
+    text-transform:uppercase; margin-bottom:6px; display:block;
+  }
+
+  /* Droplet motif - signature element (nod to IV drip in the logo) */
+  .drop{
+    width:22px; height:26px; border-radius:50% 50% 50% 0; transform:rotate(45deg);
+    display:inline-block; flex-shrink:0;
+  }
+  .drop.filled{background:var(--purple-700);}
+  .drop.empty{background:var(--purple-100); border:2px solid var(--purple-200);}
+  .drop.teal{background:var(--teal-500);}
+
+  /* Home view */
+  .countdown-ring{
+    position:relative; width:150px; height:150px; margin:6px auto 4px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .countdown-ring svg{width:150px;height:150px; transform:rotate(-90deg);}
+  .countdown-ring .ring-bg{fill:none; stroke:var(--purple-100); stroke-width:10;}
+  .countdown-ring .ring-fg{fill:none; stroke:url(#gradPurple); stroke-width:10; stroke-linecap:round; transition:stroke-dashoffset .6s ease;}
+  .countdown-center{position:absolute; text-align:center;}
+  .countdown-center .num{font-family:'Kanit'; font-size:34px; font-weight:700; color:var(--purple-800); line-height:1;}
+  .countdown-center .lab{font-size:12px; color:var(--ink-600); margin-top:2px;}
+
+  .no-date{
+    text-align:center; padding:8px 4px 4px;
+  }
+  .no-date input[type=date]{
+    font-family:'Sarabun'; font-size:15px; padding:10px 14px; border-radius:12px;
+    border:1.5px solid var(--purple-200); margin-top:10px; width:100%;
+  }
+
+  .today-todo{
+    background:linear-gradient(135deg,var(--purple-800),var(--purple-500));
+    color:#fff; border-radius:var(--radius-md); padding:16px; margin-bottom:14px;
+    box-shadow:var(--shadow-card);
+  }
+  .today-todo .eyebrow{color:var(--pink-100);}
+  .today-todo ul{margin:8px 0 0; padding-left:0; list-style:none;}
+  .today-todo li{display:flex; gap:8px; align-items:flex-start; font-size:14px; margin-bottom:6px; line-height:1.5;}
+  .today-todo li::before{content:"•"; color:var(--pink-100);}
+
+  .progress-track{height:10px; background:var(--purple-100); border-radius:8px; overflow:hidden; margin-top:8px;}
+  .progress-fill{height:100%; background:linear-gradient(90deg,var(--teal-500),var(--purple-700)); border-radius:8px; transition:width .4s ease;}
+
+  .quicklinks{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .quicklink{
+    background:var(--white); border-radius:var(--radius-md); padding:14px 12px;
+    box-shadow:var(--shadow-card); text-align:center; cursor:pointer; border:none;
+  }
+  .quicklink .ic{font-size:24px; display:block; margin-bottom:6px;}
+  .quicklink .tt{font-size:13px; font-weight:600; color:var(--ink-900);}
+
+  /* Timeline (Prepare) */
+  .timeline{position:relative; padding-left:28px; margin-top:6px;}
+  .timeline::before{content:""; position:absolute; left:10px; top:6px; bottom:6px; width:3px; background:var(--purple-200); border-radius:3px;}
+  .tl-item{position:relative; margin-bottom:12px;}
+  .tl-dot{
+    position:absolute; left:-28px; top:14px; width:20px; height:20px; border-radius:50%;
+    background:var(--white); border:3px solid var(--purple-700); z-index:1;
+  }
+  .tl-item.done .tl-dot{background:var(--teal-500); border-color:var(--teal-500);}
+  .tl-head{
+    display:flex; justify-content:space-between; align-items:center; cursor:pointer;
+    background:var(--white); border-radius:var(--radius-md); padding:14px 16px; box-shadow:var(--shadow-card);
+  }
+  .tl-head .when{font-family:'Kanit'; font-weight:600; font-size:14.5px; color:var(--purple-800);}
+  .tl-head .caret{transition:transform .2s ease; color:var(--purple-500);}
+  .tl-item.open .tl-head .caret{transform:rotate(180deg);}
+  .tl-body{max-height:0; overflow:hidden; transition:max-height .3s ease;}
+  .tl-item.open .tl-body{max-height:600px;}
+  .tl-body-inner{padding:14px 16px 4px;}
+  .tl-body-inner .row{display:flex; gap:10px; margin-bottom:12px;}
+  .tl-body-inner .row .ic{font-size:18px; width:26px; flex-shrink:0; text-align:center;}
+  .tl-body-inner .row .txt b{display:block; font-size:13.5px; color:var(--ink-900); margin-bottom:2px;}
+  .tl-body-inner .row .txt span{font-size:13px; color:var(--ink-600); line-height:1.5;}
+
+  /* Checklist */
+  .check-item{
+    display:flex; align-items:center; gap:12px; background:var(--white); border-radius:var(--radius-md);
+    padding:13px 16px; margin-bottom:10px; box-shadow:var(--shadow-card); cursor:pointer;
+  }
+  .check-item .box{width:24px;height:24px;border-radius:8px;border:2px solid var(--purple-300, var(--purple-500)); flex-shrink:0; position:relative;}
+  .check-item.checked .box{background:var(--teal-500); border-color:var(--teal-500);}
+  .check-item.checked .box::after{content:"✓"; color:#fff; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700;}
+  .check-item .lbl{font-size:14.5px; flex:1;}
+  .check-item.checked .lbl{color:var(--ink-400); text-decoration:line-through;}
+  .banner-locked{
+    background:var(--purple-100); color:var(--purple-800); border-radius:var(--radius-md);
+    padding:12px 14px; font-size:13px; text-align:center; margin-top:6px;
+  }
+  .banner-ready{
+    background:linear-gradient(135deg,var(--teal-500),#1f9d89); color:#fff; border-radius:var(--radius-md);
+    padding:14px; font-size:14px; text-align:center; margin-top:6px; font-weight:600;
+  }
+
+  /* Sub tab pills */
+  .pills{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; scrollbar-width:none;}
+  .pills::-webkit-scrollbar{display:none;}
+  .pill{
+    flex-shrink:0; padding:9px 16px; border-radius:999px; border:1.5px solid var(--purple-200);
+    background:var(--white); color:var(--ink-600); font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  .pill.active{background:var(--purple-800); border-color:var(--purple-800); color:#fff;}
+
+  .subview{display:none;}
+  .subview.active{display:block;}
+
+  /* QA accordion cards (learn) */
+  .qa-card{background:var(--white); border-radius:var(--radius-md); box-shadow:var(--shadow-card); margin-bottom:10px; overflow:hidden;}
+  .qa-q{display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer;}
+  .qa-q .emoji{font-size:20px;}
+  .qa-q .txt{flex:1; font-size:14px; font-weight:600; color:var(--ink-900);}
+  .qa-q .caret{color:var(--purple-500); transition:transform .2s ease;}
+  .qa-card.open .qa-q .caret{transform:rotate(180deg);}
+  .qa-a{max-height:0; overflow:hidden; transition:max-height .3s ease;}
+  .qa-card.open .qa-a{max-height:400px;}
+  .qa-a-inner{padding:0 16px 16px 46px; font-size:13.5px; color:var(--ink-600); line-height:1.65;}
+
+  .danger-box{
+    background:var(--red-100); border:1.5px solid #F3B4B4; border-radius:var(--radius-md);
+    padding:14px 16px; margin:14px 0;
+  }
+  .danger-box h3{color:var(--red-600); font-size:14.5px; display:flex; align-items:center; gap:6px;}
+  .danger-box ul{margin:8px 0 0; padding-left:20px;}
+  .danger-box li{font-size:13.5px; color:#7a1f1f; margin-bottom:5px; line-height:1.5;}
+
+  .search-box{
+    display:flex; align-items:center; gap:8px; background:var(--white); border-radius:14px;
+    padding:11px 14px; box-shadow:var(--shadow-card); margin-bottom:14px;
+  }
+  .search-box input{border:none; outline:none; flex:1; font-family:'Sarabun'; font-size:14px; background:transparent;}
+
+  /* Forms */
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:13.5px; font-weight:600; color:var(--ink-900); margin-bottom:7px;}
+  .field .hint{font-size:12px; color:var(--ink-400); margin-top:5px;}
+  .seg{display:flex; gap:8px; flex-wrap:wrap;}
+  .seg-btn{
+    padding:9px 15px; border-radius:12px; border:1.5px solid var(--purple-200); background:#fff;
+    font-size:13.5px; color:var(--ink-600); cursor:pointer;
+  }
+  .seg-btn.sel{background:var(--purple-800); border-color:var(--purple-800); color:#fff;}
+  textarea, .txt-input{
+    width:100%; border:1.5px solid var(--purple-200); border-radius:12px; padding:11px 13px;
+    font-family:'Sarabun'; font-size:14px; resize:vertical; outline:none;
+  }
+  textarea:focus, .txt-input:focus{border-color:var(--purple-700);}
+
+  .btn-primary{
+    width:100%; padding:14px; border-radius:14px; border:none; background:var(--purple-800);
+    color:#fff; font-family:'Kanit'; font-weight:600; font-size:15px; cursor:pointer;
+  }
+  .btn-primary:disabled{opacity:.45;}
+  .btn-ghost{
+    width:100%; padding:13px; border-radius:14px; border:1.5px solid var(--purple-200); background:#fff;
+    color:var(--purple-800); font-family:'Kanit'; font-weight:600; font-size:14.5px; cursor:pointer; margin-top:8px;
+  }
+  .step-dots{display:flex; gap:6px; justify-content:center; margin-bottom:18px;}
+  .step-dot{width:8px; height:8px; border-radius:50%; background:var(--purple-200);}
+  .step-dot.on{background:var(--purple-700); width:20px; border-radius:5px;}
+
+  .summary-flag{
+    display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:12px; margin-bottom:10px; font-size:13.5px;
+  }
+  .summary-flag.warn{background:#FFF4E0; color:#8a5a00;}
+  .summary-flag.info{background:var(--teal-100); color:#0f6b5c;}
+  .disclaimer{
+    background:var(--purple-100); color:var(--purple-800); font-size:12px; padding:10px 12px;
+    border-radius:12px; line-height:1.6; margin-bottom:14px;
+  }
+
+  /* Stars */
+  .stars{display:flex; gap:8px; justify-content:center; margin:10px 0 4px;}
+  .star{font-size:32px; color:var(--purple-200); cursor:pointer; transition:transform .1s ease;}
+  .star.on{color:var(--pink-500);}
+  .star:active{transform:scale(1.15);}
+  .rate-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .rate-row .lbl{font-size:13.5px; color:var(--ink-900); max-width:150px;}
+  .mini-stars{display:flex; gap:3px;}
+  .mini-stars .star{font-size:20px;}
+
+  .emergency-banner{
+    background:linear-gradient(135deg,#c81e1e,#e14b4b); color:#fff; border-radius:var(--radius-md);
+    padding:14px 16px; margin-bottom:16px; font-size:13.5px; line-height:1.6;
+  }
+  .emergency-banner b{display:block; font-size:14.5px; margin-bottom:4px;}
+  .emergency-banner .call-btn{
+    display:block; text-align:center; background:#fff; color:#c81e1e; font-weight:700;
+    border-radius:10px; padding:9px; margin-top:10px; text-decoration:none; font-size:13.5px;
+  }
+
+  .contact-row{
+    display:flex; align-items:center; gap:12px; background:var(--white); border-radius:var(--radius-md);
+    padding:14px 16px; margin-bottom:10px; box-shadow:var(--shadow-card); text-decoration:none; color:inherit;
+  }
+  .contact-row .ic{width:40px; height:40px; border-radius:12px; background:var(--purple-100); display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0;}
+  .contact-row .t{font-size:14px; font-weight:600;}
+  .contact-row .d{font-size:12.5px; color:var(--ink-600);}
+  .map-box{
+    height:150px; border-radius:var(--radius-md); background:linear-gradient(135deg,var(--purple-100),var(--teal-100));
+    display:flex; align-items:center; justify-content:center; margin-bottom:14px; color:var(--purple-700); font-size:13px; text-align:center; padding:12px;
+  }
+
+  .history-item{background:var(--white); border-radius:var(--radius-md); padding:13px 15px; margin-bottom:10px; box-shadow:var(--shadow-card);}
+  .history-item .top{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-400); margin-bottom:4px;}
+  .history-item .body{font-size:13.5px; color:var(--ink-900);}
+  .status-chip{font-size:11px; padding:3px 9px; border-radius:999px; font-weight:600;}
+  .status-chip.sent{background:var(--purple-100); color:var(--purple-800);}
+  .status-chip.review{background:#FFF4E0; color:#8a5a00;}
+  .status-chip.done{background:var(--teal-100); color:#0f6b5c;}
+  .empty-state{text-align:center; padding:30px 10px; color:var(--ink-400); font-size:13.5px;}
+
+  /* Bottom nav */
+  .bottomnav{
+    position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:480px;
+    background:#fff; display:flex; box-shadow:0 -6px 24px rgba(82,4,138,.12); border-radius:22px 22px 0 0;
+    z-index:30; padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+  }
+  .navbtn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none;
+    padding:6px 2px; cursor:pointer; color:var(--ink-400);
+  }
+  .navbtn .ic{font-size:21px;}
+  .navbtn .tt{font-size:10.5px; font-weight:600;}
+  .navbtn.active{color:var(--purple-800);}
+  .navbtn.active .ic{transform:translateY(-2px);}
+
+  .toast{
+    position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:var(--ink-900); color:#fff;
+    padding:11px 20px; border-radius:12px; font-size:13.5px; z-index:50; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,-6px);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <img src="icons/icon-96.png" alt="ดมยาแคร์">
+      <span>ดมยาแคร์</span>
+    </div>
+    <div class="sub" id="topbarSub">เตรียมพร้อม อุ่นใจ ทุกขั้นตอนของการระงับความรู้สึก</div>
+  </div>
+
+  <div class="views">
+
+    <!-- ============ HOME ============ -->
+    <section class="view active" id="view-home">
+
+      <div class="card" id="homeDateCard">
+        <!-- filled by JS -->
+      </div>
+
+      <div class="today-todo" id="todayTodoCard" style="display:none;">
+        <span class="eyebrow">วันนี้ควรทำ</span>
+        <ul id="todayTodoList"></ul>
+      </div>
+
+      <div class="card">
+        <span class="eyebrow">ความคืบหน้าการเตรียมตัว</span>
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div class="muted" style="margin-top:6px;" id="progressLabel">เตรียมตัวไปแล้ว 0/6 ขั้นตอน</div>
+      </div>
+
+      <span class="eyebrow" style="padding-left:2px;">ทางลัด</span>
+      <div class="quicklinks" style="margin-top:8px;">
+        <button class="quicklink" onclick="goTo('prepare','tl')"><span class="ic">🗓️</span><span class="tt">Timeline เตรียมตัว</span></button>
+        <button class="quicklink" onclick="goTo('assess')"><span class="ic">📝</span><span class="tt">ประเมินความเสี่ยง</span></button>
+        <button class="quicklink" onclick="goTo('learn','qa')"><span class="ic">💜</span><span class="tt">รู้จักการดมยาสลบ</span></button>
+        <button class="quicklink" onclick="goTo('contact','feedback')"><span class="ic">⭐</span><span class="tt">ให้คะแนนความพึงพอใจ</span></button>
+      </div>
+    </section>
+
+    <!-- ============ PREPARE ============ -->
+    <section class="view" id="view-prepare">
+      <div class="pills">
+        <button class="pill active" data-sub="tl" onclick="switchSub('prepare','tl')">Timeline เตรียมตัว</button>
+        <button class="pill" data-sub="cl" onclick="switchSub('prepare','cl')">Checklist วันผ่าตัด</button>
+      </div>
+
+      <div class="subview active" id="prepare-tl">
+        <div class="timeline" id="timelineList"></div>
+      </div>
+
+      <div class="subview" id="prepare-cl">
+        <div class="card" style="margin-bottom:14px;">
+          <h3>เช้าวันผ่าตัด</h3>
+          <p class="muted">ติ๊กทีละข้อ เพื่อความมั่นใจว่าเตรียมตัวครบก่อนออกจากบ้าน</p>
+        </div>
+        <div id="checklistItems"></div>
+        <div id="checklistBanner"></div>
+      </div>
+    </section>
+
+    <!-- ============ SELF ASSESSMENT ============ -->
+    <section class="view" id="view-assess">
+      <div class="disclaimer">
+        ข้อมูลนี้ใช้เพื่อ<strong>เตรียมความพร้อมในการซักประวัติ</strong>เท่านั้น ไม่ใช่การวินิจฉัยหรือคำแนะนำทางการแพทย์ กรุณาให้ข้อมูลจริงกับวิสัญญีแพทย์อีกครั้งก่อนผ่าตัด
+      </div>
+      <div id="assessWizard"></div>
+      <div id="assessSummary" style="display:none;"></div>
+    </section>
+
+    <!-- ============ LEARN ============ -->
+    <section class="view" id="view-learn">
+      <div class="pills">
+        <button class="pill active" data-sub="qa" onclick="switchSub('learn','qa')">รู้จักการดมยาสลบ</button>
+        <button class="pill" data-sub="post" onclick="switchSub('learn','post')">หลังผ่าตัด</button>
+        <button class="pill" data-sub="home2" onclick="switchSub('learn','home2')">เมื่อกลับบ้าน</button>
+        <button class="pill" data-sub="faq" onclick="switchSub('learn','faq')">FAQ</button>
+      </div>
+
+      <div class="subview active" id="learn-qa"></div>
+      <div class="subview" id="learn-post"></div>
+      <div class="subview" id="learn-home2"></div>
+      <div class="subview" id="learn-faq">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="ค้นหาคำถาม เช่น ความจำ, งดน้ำ, นมลูก" id="faqSearch" oninput="renderFaq()">
+        </div>
+        <div id="faqList"></div>
+      </div>
+    </section>
+
+    <!-- ============ CONTACT & FEEDBACK ============ -->
+    <section class="view" id="view-contact">
+      <div class="pills">
+        <button class="pill active" data-sub="info" onclick="switchSub('contact','info')">ติดต่อ</button>
+        <button class="pill" data-sub="feedback" onclick="switchSub('contact','feedback')">ประเมิน</button>
+        <button class="pill" data-sub="concern" onclick="switchSub('contact','concern')">แจ้งปัญหา</button>
+        <button class="pill" data-sub="history" onclick="switchSub('contact','history')">ประวัติ</button>
+      </div>
+
+      <div class="subview active" id="contact-info">
+        <div class="map-box">📍 แผนที่โรงพยาบาล<br>(แนบลิงก์ Google Maps ของโรงพยาบาลที่นี่)</div>
+        <a class="contact-row" href="tel:1669">
+          <span class="ic">📞</span>
+          <div><div class="t">โทรหาแผนกวิสัญญี</div><div class="d">เบอร์กลางโรงพยาบาล — แก้ไขเป็นเบอร์จริง</div></div>
+        </a>
+        <a class="contact-row" href="#">
+          <span class="ic">💬</span>
+          <div><div class="t">Line Official Account</div><div class="d">@yourhospital — แก้ไขเป็น Line ID จริง</div></div>
+        </a>
+        <div class="contact-row">
+          <span class="ic">🕐</span>
+          <div><div class="t">เวลาทำการ</div><div class="d">จันทร์–ศุกร์ 08:00–16:00 น.</div></div>
+        </div>
+        <div class="contact-row">
+          <span class="ic">🏥</span>
+          <div><div class="t">จุดรับบริการ</div><div class="d">คลินิกวิสัญญี ชั้น 2 อาคารผู้ป่วยนอก</div></div>
+        </div>
+      </div>
+
+      <div class="subview" id="contact-feedback">
+        <div class="card">
+          <h3>ให้คะแนนความพึงพอใจ</h3>
+          <p class="muted">ใช้เวลาไม่ถึง 2 นาที ความเห็นของท่านช่วยให้เราพัฒนาการดูแลได้ดียิ่งขึ้น</p>
+        </div>
+        <div class="card" id="ratingCard"></div>
+        <div class="field">
+          <label>ความคิดเห็นเพิ่มเติม (ถ้ามี)</label>
+          <textarea rows="3" id="fbComment" placeholder="เล่าประสบการณ์ของท่าน..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="submitFeedback()">ส่งแบบประเมิน</button>
+      </div>
+
+      <div class="subview" id="contact-concern">
+        <div class="emergency-banner">
+          <b>⚠️ หากมีอาการฉุกเฉิน</b>
+          หายใจลำบาก เลือดออกมาก ไข้สูง หรือปวดรุนแรงผิดปกติ กรุณาโทรทันที ไม่ต้องรอการตอบกลับผ่านแอป
+          <a class="call-btn" href="tel:1669">📞 โทรฉุกเฉินตอนนี้</a>
+        </div>
+        <div class="field">
+          <label>ประเภทเรื่องที่ต้องการแจ้ง</label>
+          <div class="seg" id="concernType">
+            <button class="seg-btn sel" data-v="general">สอบถามทั่วไป</button>
+            <button class="seg-btn" data-v="symptom">แจ้งอาการ (ไม่ฉุกเฉิน)</button>
+            <button class="seg-btn" data-v="suggest">ข้อเสนอแนะ</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>รายละเอียด</label>
+          <textarea rows="4" id="concernText" placeholder="อธิบายอาการหรือคำถามของท่าน..."></textarea>
+          <div class="hint">ทีมงานจะตอบกลับภายในเวลาทำการถัดไป</div>
+        </div>
+        <button class="btn-primary" onclick="submitConcern()">ส่งข้อความ</button>
+      </div>
+
+      <div class="subview" id="contact-history">
+        <div id="historyList"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="bottomnav">
+    <button class="navbtn active" data-tab="home" onclick="goTo('home')"><span class="ic">🏠</span><span class="tt">หน้าแรก</span></button>
+    <button class="navbtn" data-tab="prepare" onclick="goTo('prepare')"><span class="ic">📋</span><span class="tt">เตรียมตัว</span></button>
+    <button class="navbtn" data-tab="assess" onclick="goTo('assess')"><span class="ic">🩺</span><span class="tt">ประเมิน</span></button>
+    <button class="navbtn" data-tab="learn" onclick="goTo('learn')"><span class="ic">📖</span><span class="tt">คลังความรู้</span></button>
+    <button class="navbtn" data-tab="contact" onclick="goTo('contact')"><span class="ic">💬</span><span class="tt">ติดต่อ</span></button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute;">
+  <defs>
+    <linearGradient id="gradPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5EA2"/>
+      <stop offset="100%" stop-color="#52048A"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<script src="app.js"></script>
+</body>
+</html>
