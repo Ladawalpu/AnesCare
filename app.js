@@ -3,6 +3,29 @@
    เก็บ state ด้วย localStorage เพื่อให้ข้อมูลอยู่ครบแม้ปิดแอปไปแล้ว
    ======================================================================== */
 
+/**
+ * วาง Web App URL ของ Google Apps Script (ไฟล์ Code.gs) ตรงนี้
+ * เมื่อ deploy แล้วจะได้ URL รูปแบบ:
+ * https://script.google.com/macros/s/xxxxxxxxxxxxxxxxxxxxxx/exec
+ * ถ้ายังไม่ตั้งค่า แอปจะยังทำงานปกติ แต่จะบันทึกไว้แค่ในเครื่องนี้เท่านั้น (ไม่ส่งขึ้น Sheets)
+ */
+const SHEET_WEBAPP_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+
+/**
+ * ส่งข้อมูลไปบันทึกที่ Google Sheets แบบไม่บล็อกการทำงานของแอป
+ * ใช้ mode:"no-cors" เพราะ Apps Script ไม่ได้ตั้งค่า CORS header ให้อ่านผลลัพธ์กลับ
+ * (เราไม่จำเป็นต้องอ่านผลลัพธ์ เพราะข้อมูลถูกบันทึกไว้ใน localStorage อยู่แล้วเป็นหลัก)
+ */
+function sendToSheet(sheetType, payload){
+  if(!SHEET_WEBAPP_URL || SHEET_WEBAPP_URL.indexOf("PASTE_YOUR") !== -1) return;
+  fetch(SHEET_WEBAPP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ sheetType, payload })
+  }).catch(()=>{ /* เงียบไว้ — ข้อมูลยังปลอดภัยใน localStorage แม้ส่งขึ้น Sheets ไม่สำเร็จ */ });
+}
+
 const LS_KEY = "anescare_state_v1";
 
 function loadState(){
@@ -283,9 +306,60 @@ function toggleCheck(id){
 /* SELF ASSESSMENT WIZARD                                                 */
 /* ---------------------------------------------------------------------- */
 
+const DISEASE_OPTIONS = [
+  "โรคหัวใจ","ความดันโลหิตสูง","ไขมันในเลือดสูง","เบาหวาน","หอบหืด",
+  "ถุงลมโป่งพอง","เกาต์","ไทรอยด์","กรดไหลย้อน","ต่อมลูกหมากโต"
+];
+
+// ฐานข้อมูลยาที่รับประทานประจำ (พิมพ์ตัวอักษรแรกแล้วขึ้นรายการให้เลือก)
+// note = คำแนะนำทั่วไปเรื่องวันหยุดยา/กินต่อ (ไม่ใช่คำสั่งทางการแพทย์ ต้องยืนยันกับแพทย์เฉพาะรายเสมอ)
+const DRUG_DB = [
+  {name:"Amlodipine", category:"ยาลดความดันโลหิต", note:"โดยทั่วไปกินต่อได้ถึงเช้าวันผ่าตัด (จิบน้ำเปล่าเล็กน้อยได้)", flag:"info"},
+  {name:"Enalapril", category:"ยาลดความดันโลหิต (ACEI)", note:"บางกรณีแพทย์อาจให้งดเช้าวันผ่าตัด ควรปรึกษาแพทย์เฉพาะราย", flag:"warn"},
+  {name:"Losartan", category:"ยาลดความดันโลหิต (ARB)", note:"บางกรณีแพทย์อาจให้งดเช้าวันผ่าตัด ควรปรึกษาแพทย์เฉพาะราย", flag:"warn"},
+  {name:"Valsartan", category:"ยาลดความดันโลหิต (ARB)", note:"บางกรณีแพทย์อาจให้งดเช้าวันผ่าตัด ควรปรึกษาแพทย์เฉพาะราย", flag:"warn"},
+  {name:"Atenolol", category:"ยาลดความดันโลหิต (Beta-blocker)", note:"โดยทั่วไปกินต่อได้ถึงเช้าวันผ่าตัด การหยุดกะทันหันอาจเป็นอันตราย", flag:"info"},
+  {name:"Propranolol", category:"ยาลดความดันโลหิต (Beta-blocker)", note:"โดยทั่วไปกินต่อได้ถึงเช้าวันผ่าตัด การหยุดกะทันหันอาจเป็นอันตราย", flag:"info"},
+  {name:"Nifedipine", category:"ยาลดความดันโลหิต", note:"โดยทั่วไปกินต่อได้ถึงเช้าวันผ่าตัด", flag:"info"},
+  {name:"Hydrochlorothiazide", category:"ยาขับปัสสาวะ/ลดความดัน", note:"บางกรณีแพทย์อาจให้งดเช้าวันผ่าตัด ควรปรึกษาแพทย์เฉพาะราย", flag:"warn"},
+  {name:"Metformin", category:"ยาเบาหวาน (ชนิดกิน)", note:"มักให้งดเช้าวันผ่าตัด (ขณะงดอาหาร) ควรปรึกษาแพทย์เรื่องการปรับยา", flag:"warn"},
+  {name:"Glipizide", category:"ยาเบาหวาน (ชนิดกิน)", note:"มักให้งดเช้าวันผ่าตัด ควรปรึกษาแพทย์เรื่องการปรับยา", flag:"warn"},
+  {name:"Gliclazide", category:"ยาเบาหวาน (ชนิดกิน)", note:"มักให้งดเช้าวันผ่าตัด ควรปรึกษาแพทย์เรื่องการปรับยา", flag:"warn"},
+  {name:"Insulin", category:"ยาฉีดเบาหวาน", note:"ต้องปรึกษาแพทย์เฉพาะรายเรื่องการปรับขนาดฉีดในวันงดอาหาร ห้ามหยุด/ปรับเอง", flag:"warn"},
+  {name:"Simvastatin", category:"ยาลดไขมัน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Atorvastatin", category:"ยาลดไขมัน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Rosuvastatin", category:"ยาลดไขมัน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Salbutamol", category:"ยาขยายหลอดลม (หอบหืด/ถุงลมโป่งพอง)", note:"กินต่อ/พ่นได้ตามปกติ ควรนำยาพ่นติดตัวมาในวันผ่าตัด", flag:"info"},
+  {name:"Budesonide", category:"ยาสูดพ่นสเตียรอยด์ (หอบหืด)", note:"พ่นต่อได้ตามปกติ ควรนำยาพ่นติดตัวมาในวันผ่าตัด", flag:"info"},
+  {name:"Theophylline", category:"ยาขยายหลอดลม", note:"โดยทั่วไปกินต่อได้ตามปกติ ควรแจ้งวิสัญญีแพทย์เนื่องจากมีผลต่อระดับยาในเลือด", flag:"warn"},
+  {name:"Ipratropium", category:"ยาสูดพ่น (ถุงลมโป่งพอง)", note:"พ่นต่อได้ตามปกติ ควรนำยาพ่นติดตัวมาในวันผ่าตัด", flag:"info"},
+  {name:"Allopurinol", category:"ยาโรคเกาต์", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Colchicine", category:"ยาโรคเกาต์", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Febuxostat", category:"ยาโรคเกาต์", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Levothyroxine", category:"ยาไทรอยด์", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Propylthiouracil", category:"ยาไทรอยด์ (คอพอกเป็นพิษ)", note:"โดยทั่วไปกินต่อได้ตามปกติ ควรแจ้งวิสัญญีแพทย์", flag:"info"},
+  {name:"Methimazole", category:"ยาไทรอยด์ (คอพอกเป็นพิษ)", note:"โดยทั่วไปกินต่อได้ตามปกติ ควรแจ้งวิสัญญีแพทย์", flag:"info"},
+  {name:"Omeprazole", category:"ยากรดไหลย้อน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Esomeprazole", category:"ยากรดไหลย้อน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Ranitidine", category:"ยากรดไหลย้อน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Domperidone", category:"ยาช่วยการบีบตัวของกระเพาะ", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Tamsulosin", category:"ยาต่อมลูกหมากโต", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Finasteride", category:"ยาต่อมลูกหมากโต", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Doxazosin", category:"ยาต่อมลูกหมากโต/ความดัน", note:"โดยทั่วไปกินต่อได้ตามปกติ", flag:"info"},
+  {name:"Aspirin", category:"ยาต้านเกล็ดเลือด", note:"มักต้องหยุดล่วงหน้าตามคำสั่งแพทย์ (มักประมาณ 5-7 วัน) ห้ามหยุดเอง", flag:"warn"},
+  {name:"Clopidogrel", category:"ยาต้านเกล็ดเลือด", note:"มักต้องหยุดล่วงหน้าตามคำสั่งแพทย์ (มักประมาณ 5-7 วัน) ห้ามหยุดเอง", flag:"warn"},
+  {name:"Warfarin", category:"ยาต้านการแข็งตัวของเลือด", note:"ต้องปรึกษาแพทย์เฉพาะรายเรื่องวันหยุดยาและอาจต้องเจาะเลือดตรวจก่อนผ่าตัด ห้ามหยุดเอง", flag:"warn"},
+  {name:"Digoxin", category:"ยาโรคหัวใจ", note:"โดยทั่วไปกินต่อได้ตามปกติ ควรแจ้งวิสัญญีแพทย์เนื่องจากต้องติดตามระดับยาใกล้ชิด", flag:"warn"},
+  {name:"น้ำมันปลา", category:"อาหารเสริม", note:"ควรหยุดล่วงหน้าอย่างน้อย 5-7 วันก่อนผ่าตัด เนื่องจากอาจเพิ่มความเสี่ยงเลือดออก", flag:"warn"},
+  {name:"แปะก๊วย", category:"สมุนไพร", note:"ควรหยุดล่วงหน้าอย่างน้อย 5-7 วันก่อนผ่าตัด เนื่องจากอาจเพิ่มความเสี่ยงเลือดออก", flag:"warn"},
+  {name:"โสม", category:"สมุนไพร", note:"ควรหยุดล่วงหน้าอย่างน้อย 5-7 วันก่อนผ่าตัด เนื่องจากอาจมีผลต่อการแข็งตัวของเลือดและระดับน้ำตาล", flag:"warn"},
+  {name:"กระเทียมสกัด", category:"อาหารเสริม", note:"ควรหยุดล่วงหน้าอย่างน้อย 5-7 วันก่อนผ่าตัด เนื่องจากอาจเพิ่มความเสี่ยงเลือดออก", flag:"warn"},
+  {name:"วิตามินอี", category:"วิตามิน/อาหารเสริม", note:"ควรหยุดล่วงหน้าอย่างน้อย 5-7 วันก่อนผ่าตัด หากรับประทานขนาดสูงต่อเนื่อง", flag:"info"},
+];
+
 const ASSESS_STEPS = [
-  {key:"disease", q:"ท่านมีโรคประจำตัวหรือไม่", type:"yn_text", ph:"ระบุโรคประจำตัว เช่น เบาหวาน ความดันโลหิตสูง"},
-  {key:"allergy", q:"ท่านแพ้ยาหรือแพ้อาหารหรือไม่", type:"yn_text", ph:"ระบุยา/อาหารที่แพ้ และอาการที่เกิดขึ้น"},
+  {key:"disease", q:"ท่านมีโรคประจำตัวข้อใดต่อไปนี้บ้าง (เลือกได้มากกว่า 1 ข้อ)", type:"multi"},
+  {key:"meds", q:"ยาที่รับประทานเป็นประจำ (ถ้ามี ระบุได้สูงสุด 7 รายการ)", type:"meds"},
   {key:"prevAnes", q:"ท่านเคยดมยาสลบ/ระงับความรู้สึกมาก่อนหรือไม่", type:"yn_text", ph:"ระบุปัญหาที่เคยพบ (ถ้ามี) เช่น แพ้ยาสลบ อาเจียนมาก"},
   {key:"looseTeeth", q:"ท่านมีฟันโยกหรือฟันปลอมหรือไม่", type:"yn"},
   {key:"snore", q:"ท่านนอนกรนเสียงดัง หรือเคยได้รับการวินิจฉัยภาวะหยุดหายใจขณะหลับหรือไม่", type:"yn"},
@@ -309,16 +383,34 @@ function renderAssessWizard(){
 function drawAssessStep(){
   const el = document.getElementById("assessWizard");
   const s = ASSESS_STEPS[assessStep];
-  if(!assessAnswers[s.key]) assessAnswers[s.key] = {yn:null, text:""};
+
+  if(!assessAnswers[s.key]){
+    if(s.type==="multi") assessAnswers[s.key] = {selected:[], other:""};
+    else if(s.type==="meds") assessAnswers[s.key] = {items: Array.from({length:7}, ()=>({name:"",category:"",note:"",flag:""}))};
+    else assessAnswers[s.key] = {yn:null, text:""};
+  }
   const cur = assessAnswers[s.key];
 
   const dots = ASSESS_STEPS.map((_,i)=>`<div class="step-dot ${i===assessStep?'on':''}"></div>`).join("");
 
-  el.innerHTML = `
-    <div class="step-dots">${dots}</div>
-    <div class="card">
-      <span class="eyebrow">ข้อ ${assessStep+1} จาก ${ASSESS_STEPS.length}</span>
-      <h3 style="font-size:16px; margin-bottom:14px;">${s.q}</h3>
+  let bodyHtml;
+  if(s.type==="multi"){
+    bodyHtml = `
+      <div class="chip-grid">
+        ${DISEASE_OPTIONS.map(opt=>`
+          <button class="seg-btn ${cur.selected.includes(opt)?'sel':''}" onclick="toggleDisease('${opt.replace(/'/g,"\\'")}')">${opt}</button>
+        `).join("")}
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label style="font-size:12.5px;">อื่นๆ (ถ้ามี)</label>
+        <textarea rows="2" id="diseaseOther" placeholder="ระบุโรคประจำตัวอื่นๆ ที่ไม่มีในรายการ" oninput="assessAnswers.disease.other=this.value">${cur.other||''}</textarea>
+      </div>`;
+  } else if(s.type==="meds"){
+    bodyHtml = `
+      <p class="muted" style="margin-bottom:12px;">ไม่จำเป็นต้องกรอกครบทุกช่อง เว้นว่างไว้ได้หากไม่มี</p>
+      ${renderMedsRows(cur)}`;
+  } else {
+    bodyHtml = `
       <div class="seg" id="ynSeg">
         <button class="seg-btn ${cur.yn===true?'sel':''}" onclick="setYn(true)">มี / ใช่</button>
         <button class="seg-btn ${cur.yn===false?'sel':''}" onclick="setYn(false)">ไม่มี / ไม่ใช่</button>
@@ -326,15 +418,110 @@ function drawAssessStep(){
       ${s.type==="yn_text" ? `
         <div class="field" style="margin-top:14px;">
           <textarea rows="2" id="ynText" placeholder="${s.ph}" oninput="assessAnswers['${s.key}'].text=this.value">${cur.text}</textarea>
-        </div>` : ``}
+        </div>` : ``}`;
+  }
+
+  const answered = isStepAnswered(s);
+
+  el.innerHTML = `
+    <div class="step-dots">${dots}</div>
+    <div class="card">
+      <span class="eyebrow">ข้อ ${assessStep+1} จาก ${ASSESS_STEPS.length}</span>
+      <h3 style="font-size:16px; margin-bottom:14px;">${s.q}</h3>
+      ${bodyHtml}
     </div>
     <div style="display:flex; gap:10px;">
       ${assessStep>0 ? `<button class="btn-ghost" onclick="prevAssessStep()">ย้อนกลับ</button>` : ``}
-      <button class="btn-primary" onclick="nextAssessStep()" ${cur.yn===null?'disabled':''} id="assessNextBtn">
+      <button class="btn-primary" onclick="nextAssessStep()" ${answered?'':'disabled'} id="assessNextBtn">
         ${assessStep===ASSESS_STEPS.length-1 ? "ดูสรุปผล" : "ถัดไป"}
       </button>
     </div>
   `;
+}
+
+function isStepAnswered(s){
+  if(s.type==="yn" || s.type==="yn_text"){
+    return !!(assessAnswers[s.key] && assessAnswers[s.key].yn !== null);
+  }
+  return true; // multi/meds: ไม่เลือกเลยก็ถือว่าตอบแล้ว (แปลว่า "ไม่มี")
+}
+
+function toggleDisease(opt){
+  const cur = assessAnswers.disease;
+  const i = cur.selected.indexOf(opt);
+  if(i>-1) cur.selected.splice(i,1); else cur.selected.push(opt);
+  drawAssessStep();
+}
+
+/* --- ยาที่รับประทานประจำ: ช่อง autocomplete 7 ช่อง --- */
+
+function findDrugMatches(q){
+  if(!q) return [];
+  const ql = q.trim().toLowerCase();
+  if(!ql) return [];
+  return DRUG_DB.filter(d => d.name.toLowerCase().startsWith(ql)).slice(0,6);
+}
+
+function renderMedsRows(cur){
+  return cur.items.map((it,idx)=>`
+    <div class="med-row">
+      <label class="med-row-label">ยาตัวที่ ${idx+1}</label>
+      <input type="text" class="txt-input" id="medInput-${idx}"
+        placeholder="พิมพ์ชื่อยา เช่น Amlodipine, Metformin"
+        value="${(it.name||'').replace(/"/g,'&quot;')}"
+        oninput="onMedInput(${idx}, this.value)"
+        onfocus="onMedInput(${idx}, this.value)"
+        onblur="setTimeout(function(){hideMedSuggest(${idx});}, 150)">
+      <div class="med-suggest" id="medSuggest-${idx}"></div>
+      <div id="medNote-${idx}">${it.name && it.note ? renderMedNoteHtml(it) : ""}</div>
+    </div>
+  `).join("");
+}
+
+function renderMedNoteHtml(it){
+  const icon = it.flag === "warn" ? "⚠️" : "ℹ️";
+  return `<div class="summary-flag ${it.flag||'info'}" style="margin-top:8px;">${icon} <b>${it.category}</b><br>${it.note}</div>`;
+}
+
+function onMedInput(idx, val){
+  const items = assessAnswers.meds.items;
+  // ถ้าผู้ใช้พิมพ์ใหม่ไม่ตรงกับที่เคยเลือกไว้ ให้ล้างข้อมูลยาเดิมก่อน (เก็บแค่ข้อความที่พิมพ์)
+  if(items[idx].name !== val){
+    items[idx] = {name: val, category:"", note:"", flag:""};
+  }
+  const noteBox = document.getElementById(`medNote-${idx}`);
+  if(noteBox) noteBox.innerHTML = "";
+
+  const suggestBox = document.getElementById(`medSuggest-${idx}`);
+  const matches = findDrugMatches(val);
+  if(!suggestBox) return;
+  if(matches.length===0){
+    suggestBox.innerHTML = "";
+    suggestBox.classList.remove("show");
+    return;
+  }
+  suggestBox.classList.add("show");
+  suggestBox.innerHTML = matches.map(m=>`
+    <div class="med-suggest-item" onmousedown="selectMed(${idx}, '${m.name.replace(/'/g,"\\'")}')">
+      ${m.name} <span class="cat">· ${m.category}</span>
+    </div>
+  `).join("");
+}
+
+function selectMed(idx, name){
+  const drug = DRUG_DB.find(d=>d.name===name);
+  if(!drug) return;
+  assessAnswers.meds.items[idx] = {name: drug.name, category: drug.category, note: drug.note, flag: drug.flag};
+  const input = document.getElementById(`medInput-${idx}`);
+  if(input) input.value = drug.name;
+  const noteBox = document.getElementById(`medNote-${idx}`);
+  if(noteBox) noteBox.innerHTML = renderMedNoteHtml(drug);
+  hideMedSuggest(idx);
+}
+
+function hideMedSuggest(idx){
+  const box = document.getElementById(`medSuggest-${idx}`);
+  if(box){ box.innerHTML=""; box.classList.remove("show"); }
 }
 
 function setYn(val){
@@ -346,7 +533,7 @@ function setYn(val){
 function prevAssessStep(){ assessStep--; drawAssessStep(); }
 function nextAssessStep(){
   const s = ASSESS_STEPS[assessStep];
-  if(!assessAnswers[s.key] || assessAnswers[s.key].yn===null) return;
+  if(!isStepAnswered(s)) return;
   if(assessStep < ASSESS_STEPS.length-1){
     assessStep++;
     drawAssessStep();
@@ -363,9 +550,28 @@ function renderAssessSummary(answers){
   el.style.display = "block";
 
   const flags = [];
-  if(answers.disease && answers.disease.yn) flags.push({type:"warn", text:"มีโรคประจำตัว — โปรดแจ้งวิสัญญีแพทย์และนำยาประจำตัวมาด้วย"});
-  if(answers.allergy && answers.allergy.yn) flags.push({type:"warn", text:"มีประวัติแพ้ยา/อาหาร — โปรดแจ้งวิสัญญีแพทย์โดยละเอียด"});
-  if(answers.prevAnes && answers.prevAnes.yn) flags.push({type:"info", text:"เคยดมยาสลบมาก่อน — โปรดแจ้งปัญหาที่เคยพบให้ทีมทราบ"});
+
+  if(answers.disease){
+    const list = answers.disease.selected || [];
+    const other = (answers.disease.other || "").trim();
+    if(list.length || other){
+      const all = other ? [...list, other] : list;
+      flags.push({type:"warn", text:`มีโรคประจำตัว: ${all.join(", ")} — โปรดแจ้งวิสัญญีแพทย์และนำยาประจำตัวมาด้วย`});
+    }
+  }
+
+  if(answers.meds){
+    const meds = (answers.meds.items||[]).filter(m=>m.name && m.name.trim());
+    meds.forEach(m=>{
+      if(m.note){
+        flags.push({type: m.flag||"info", text:`${m.name} (${m.category}): ${m.note}`});
+      } else {
+        flags.push({type:"info", text:`${m.name}: ไม่พบข้อมูลยานี้ในฐานข้อมูล โปรดแจ้งชื่อยานี้กับวิสัญญีแพทย์โดยตรง`});
+      }
+    });
+  }
+
+  if(answers.prevAnes && answers.prevAnes.yn) flags.push({type:"info", text:"เคยดมยาสลบมาก่อน — โปรดแจ้งปัญหาที่เคยพบให้ทีมทราบ" + (answers.prevAnes.text?` (${answers.prevAnes.text})`:"")});
   if(answers.looseTeeth && answers.looseTeeth.yn) flags.push({type:"warn", text:"มีฟันโยก/ฟันปลอม — โปรดแจ้งทีมงานก่อนใส่ท่อช่วยหายใจ"});
   if(answers.snore && answers.snore.yn) flags.push({type:"warn", text:"นอนกรน/สงสัยภาวะหยุดหายใจขณะหลับ — โปรดแจ้งวิสัญญีแพทย์"});
   if(answers.smoke && answers.smoke.yn) flags.push({type:"info", text:"สูบบุหรี่ — ควรงดก่อนผ่าตัดตามคำแนะนำของทีมงาน"});
@@ -374,7 +580,7 @@ function renderAssessSummary(answers){
   el.innerHTML = `
     <div class="card">
       <h3>สรุปผลการประเมิน</h3>
-      <p class="muted">โปรดนำข้อมูลนี้ไปแจ้งวิสัญญีแพทย์อีกครั้งก่อนผ่าตัด</p>
+      <p class="muted">โปรดนำข้อมูลนี้ไปแจ้งวิสัญญีแพทย์อีกครั้งก่อนผ่าตัด คำแนะนำเรื่องยาเป็นข้อมูลทั่วไป ไม่ใช่คำสั่งทางการแพทย์เฉพาะราย</p>
     </div>
     ${flags.length ? flags.map(f=>`<div class="summary-flag ${f.type}">${f.type==='warn'?'⚠️':'ℹ️'} ${f.text}</div>`).join("")
       : `<div class="summary-flag info">✅ ไม่พบข้อมูลที่ต้องเน้นย้ำเป็นพิเศษ แต่ควรตอบคำถามของวิสัญญีแพทย์ตามจริงเสมอ</div>`}
@@ -394,13 +600,26 @@ function editAssessment(){
 function shareAssessment(){
   const answers = state.assessment;
   let text = "สรุปข้อมูลก่อนผ่าตัด (จากแอปดมยาแคร์)\n\n";
+
+  if(answers.disease){
+    const list = answers.disease.selected || [];
+    const other = (answers.disease.other||"").trim();
+    const all = other ? [...list, other] : list;
+    text += `- โรคประจำตัว: ${all.length ? all.join(", ") : "ไม่มี"}\n`;
+  }
+  if(answers.meds){
+    const meds = (answers.meds.items||[]).filter(m=>m.name && m.name.trim());
+    text += `- ยาที่รับประทานประจำ: ${meds.length ? meds.map(m=>m.name).join(", ") : "ไม่มี"}\n`;
+  }
   ASSESS_STEPS.forEach(s=>{
+    if(s.type==="multi" || s.type==="meds") return;
     const a = answers[s.key];
     if(!a) return;
     text += `- ${s.q}: ${a.yn ? "มี/ใช่" : "ไม่มี/ไม่ใช่"}`;
     if(a.text) text += ` (${a.text})`;
     text += "\n";
   });
+
   if(navigator.share){
     navigator.share({title:"สรุปข้อมูลก่อนผ่าตัด", text}).catch(()=>{});
   } else {
@@ -506,6 +725,11 @@ function submitFeedback(){
     type:"survey", date:new Date().toISOString(), ratings:{...ratings}, comment, status:"done"
   });
   saveState();
+
+  // ส่งขึ้น Google Sheets — key ของ ratings (prep/team/pain/overall ฯลฯ) จะกลายเป็นชื่อคอลัมน์อัตโนมัติ
+  // ถ้าอนาคตเพิ่มหมวดคะแนนใหม่ใน RATING_CATS ก็จะมีคอลัมน์ใหม่ขึ้นในชีตให้เองโดยไม่ต้องแก้ Apps Script
+  sendToSheet("survey", { ...ratings, comment });
+
   ratings = {};
   document.getElementById("fbComment").value = "";
   renderRatingCard();
@@ -524,6 +748,9 @@ function submitConcern(){
     type:"concern", date:new Date().toISOString(), category:typeLabel, text, status:"sent"
   });
   saveState();
+
+  sendToSheet("concern", { category: typeLabel, text });
+
   document.getElementById("concernText").value = "";
   renderHistory();
   showToast("ส่งข้อความแล้ว ทีมงานจะติดต่อกลับโดยเร็ว");
