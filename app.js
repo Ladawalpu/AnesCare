@@ -892,7 +892,21 @@ function init(){
 
   if("serviceWorker" in navigator){
     window.addEventListener("load", ()=>{
-      navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+      navigator.serviceWorker.register("service-worker.js")
+        .then((reg)=>{
+          // เช็คทันทีว่ามีเวอร์ชันใหม่ไหม (เผื่อ browser ยังไม่ได้เช็คให้เอง)
+          reg.update().catch(()=>{});
+        })
+        .catch(()=>{});
+    });
+
+    // เมื่อ service worker เวอร์ชันใหม่เข้าควบคุมหน้าแล้ว (หลังอัปเดตไฟล์บน GitHub)
+    // ให้รีโหลดหน้าอัตโนมัติหนึ่งครั้ง เพื่อให้ผู้ใช้เห็นเนื้อหาล่าสุดโดยไม่ต้องปิด-เปิดแอปเอง
+    let swRefreshed = false;
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+      if(swRefreshed) return;
+      swRefreshed = true;
+      window.location.reload();
     });
   }
 }

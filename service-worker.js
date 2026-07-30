@@ -1,4 +1,4 @@
-const CACHE_NAME = "anescare-cache-v1";
+const CACHE_NAME = "anescare-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -31,18 +31,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+/**
+ * กลยุทธ์แบบ "Network-first": พยายามโหลดจากอินเทอร์เน็ตก่อนเสมอเมื่อมีสัญญาณ
+ * เพื่อให้ผู้ใช้เห็นเนื้อหาล่าสุดทันทีที่พี่พูอัปเดตไฟล์ขึ้น GitHub
+ * ถ้าออฟไลน์ (โหลดจากเน็ตไม่สำเร็จ) จึงค่อยดึงจากแคชที่เก็บไว้แทน
+ * ต่างจากเดิมที่เป็น "cache-first" ซึ่งเป็นสาเหตุที่แอปไม่เคยอัปเดตให้ผู้ใช้เห็นเอง
+ */
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => cached);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
