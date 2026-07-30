@@ -232,15 +232,24 @@ function renderHome(){
 function renderProcedureCard(){
   const el = document.getElementById("procedureCard");
   if(!el) return;
-  const options = PROCEDURES.map(p=>`<option value="${p.name}" ${state.procedure===p.name?'selected':''}>${p.name}</option>`).join("");
   const selected = PROCEDURES.find(p=>p.name===state.procedure);
+
+  const itemsHtml = PROCEDURES.map(p=>`
+    <div class="custom-select-item ${state.procedure===p.name?'active':''}" onclick="selectProcedure('${p.name.replace(/'/g,"\\'")}')">${p.name}</div>
+  `).join("");
 
   el.innerHTML = `
     <span class="eyebrow">หัตถการ/การผ่าตัดที่จะเข้ารับบริการ</span>
-    <select class="txt-input select-input" id="procedureSelect" onchange="onProcedureChange(this.value)">
-      <option value="">— เลือกรายการ —</option>
-      ${options}
-    </select>
+    <div class="custom-select" id="procedureCustomSelect">
+      <button type="button" class="custom-select-trigger ${selected?'':'placeholder'}" onclick="toggleProcedureDropdown(event)">
+        <span>${selected ? selected.name : "— เลือกรายการ —"}</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="custom-select-list" id="procedureDropdownList">
+        <div class="custom-select-item ${!selected?'active':''}" onclick="selectProcedure('')">— เลือกรายการ —</div>
+        ${itemsHtml}
+      </div>
+    </div>
     ${selected ? `
       <div class="summary-flag info" style="margin-top:12px;">
         <b>เกี่ยวกับหัตถการนี้</b><br>${selected.desc}
@@ -252,11 +261,25 @@ function renderProcedureCard(){
   `;
 }
 
-function onProcedureChange(val){
-  state.procedure = val || null;
+function toggleProcedureDropdown(e){
+  if(e) e.stopPropagation();
+  const wrap = document.getElementById("procedureCustomSelect");
+  if(wrap) wrap.classList.toggle("open");
+}
+
+function selectProcedure(name){
+  state.procedure = name || null;
   saveState();
   renderProcedureCard();
 }
+
+// ปิด dropdown เมื่อแตะที่อื่นนอกกล่อง
+document.addEventListener("click", (e)=>{
+  const wrap = document.getElementById("procedureCustomSelect");
+  if(wrap && !wrap.contains(e.target)){
+    wrap.classList.remove("open");
+  }
+});
 
 function setSurgeryDate(){
   const v = document.getElementById("surgeryDateInput").value;
