@@ -218,9 +218,12 @@ function renderHome(){
   if(diffDays === 1) stageKey = "night";
 
   const stage = TIMELINE.find(s=>s.key===stageKey);
-  if(stage && diffDays >= 0){
+  let todoItems = (stage && diffDays >= 0) ? stage.items.map(i=>i[1]) : [];
+  todoItems = todoItems.concat(computeMedAlertsForToday());
+
+  if(todoItems.length){
     todoCard.style.display = "block";
-    todoList.innerHTML = stage.items.map(i=>`<li>${i[1]}</li>`).join("");
+    todoList.innerHTML = todoItems.map(t=>`<li>${t}</li>`).join("");
   } else {
     todoCard.style.display = "none";
   }
@@ -311,7 +314,9 @@ function renderProgress(){
 
 function renderTimeline(){
   const el = document.getElementById("timelineList");
-  el.innerHTML = TIMELINE.map((stage, idx)=>`
+  el.innerHTML = TIMELINE.map((stage, idx)=>{
+    const medItems = getMedItemsForStage(stage.key);
+    return `
     <div class="tl-item" data-idx="${idx}">
       <div class="tl-dot"></div>
       <div class="tl-head" onclick="toggleTimeline(${idx})">
@@ -325,10 +330,19 @@ function renderTimeline(){
               <div class="ic">${i[0]}</div>
               <div class="txt"><b>${i[1]}</b><span>${i[2]}</span></div>
             </div>`).join("")}
+          ${medItems.length ? `
+            <div class="tl-med-divider">💊 ยาที่ต้องดูแลเป็นพิเศษ</div>
+            ${medItems.map(m=>`
+              <div class="row">
+                <div class="ic">${m.icon}</div>
+                <div class="txt"><b>${m.title}</b><span>${m.desc}</span></div>
+              </div>`).join("")}
+          ` : ``}
         </div>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 function toggleTimeline(idx){
   document.querySelectorAll(`#timelineList .tl-item`)[idx].classList.toggle("open");
@@ -493,7 +507,7 @@ function drawAssessStep(){
 
   if(!assessAnswers[s.key]){
     if(s.type==="multi") assessAnswers[s.key] = {selected:[], other:""};
-    else if(s.type==="meds") assessAnswers[s.key] = {items: Array.from({length:10}, ()=>({name:"",category:"",note:"",flag:""}))};
+    else if(s.type==="meds") assessAnswers[s.key] = {items: Array.from({length:10}, ()=>({name:"",category:"",note:"",flag:"",action:null,stopDays:null}))};
     else assessAnswers[s.key] = {yn:null, text:""};
   }
   const cur = assessAnswers[s.key];
@@ -569,6 +583,8 @@ function findDrugMatches(q){
   return DRUG_DB.filter(d => d.name.toLowerCase().startsWith(ql)).slice(0,6);
 }
 
+const STOP_DAY_OPTIONS = [1,2,3,5,7,10,14];
+
 function renderMedsRows(cur){
   return cur.items.map((it,idx)=>`
     <div class="med-row">
@@ -581,6 +597,7 @@ function renderMedsRows(cur){
         onblur="setTimeout(function(){hideMedSuggest(${idx});}, 150)">
       <div class="med-suggest" id="medSuggest-${idx}"></div>
       <div id="medNote-${idx}">${it.name && it.note ? renderMedNoteHtml(it) : ""}</div>
+      ${renderMedActionHtml(idx, it)}
     </div>
   `).join("");
 }
@@ -590,14 +607,58 @@ function renderMedNoteHtml(it){
   return `<div class="summary-flag ${it.flag||'info'}" style="margin-top:8px;">${icon} <b>${it.category}</b><br>${it.note}</div>`;
 }
 
+/**
+ * ปุ่มให้ผู้ป่วย/เจ้าหน้าที่บันทึกว่า "แพทย์สั่งให้จัดการยาตัวนี้อย่างไร"
+ * ตั้งใจไม่ preselect ค่าใดๆ ไว้ล่วงหน้า แม้ฐานข้อมูลยาจะมีคำแนะนำทั่วไปอยู่แล้วก็ตาม
+ * เพราะคำสั่งจริงต้องมาจากแพทย์ผู้ดูแลเฉพาะราย แอปมีหน้าที่แค่ "บันทึก" ไม่ใช่ "ตัดสินใจ" แทน
+ */
+function renderMedActionHtml(idx, item){
+  if(!item.name || !item.name.trim()) return `<div id="medAction-${idx}"></div>`;
+  const action = item.action || null;
+  return `
+    <div id="medAction-${idx}" class="med-action-group">
+      <div class="med-action-label">แพทย์แนะนำให้จัดการยาตัวนี้อย่างไร</div>
+      <div class="seg" style="margin-top:6px;">
+        <button class="seg-btn small ${action==='continue'?'sel':''}" onclick="setMedAction(${idx}, 'continue')">กินต่อถึงเช้าวันผ่าตัด</button>
+        <button class="seg-btn small ${action==='stopMorning'?'sel':''}" onclick="setMedAction(${idx}, 'stopMorning')">หยุดเช้าวันผ่าตัด</button>
+        <button class="seg-btn small ${action==='stopDays'?'sel':''}" onclick="setMedAction(${idx}, 'stopDays')">หยุดล่วงหน้า...</button>
+      </div>
+      ${action==='stopDays' ? `
+        <div class="days-chip-row">
+          ${STOP_DAY_OPTIONS.map(d=>`<button class="seg-btn small ${item.stopDays===d?'sel':''}" onclick="setMedStopDays(${idx}, ${d})">${d} วัน</button>`).join("")}
+        </div>
+      ` : ``}
+    </div>
+  `;
+}
+
+function setMedAction(idx, action){
+  const item = assessAnswers.meds.items[idx];
+  item.action = action;
+  if(action !== "stopDays") item.stopDays = null;
+  refreshMedActionArea(idx);
+}
+function setMedStopDays(idx, days){
+  const item = assessAnswers.meds.items[idx];
+  item.action = "stopDays";
+  item.stopDays = days;
+  refreshMedActionArea(idx);
+}
+function refreshMedActionArea(idx){
+  const item = assessAnswers.meds.items[idx];
+  const box = document.getElementById(`medAction-${idx}`);
+  if(box) box.outerHTML = renderMedActionHtml(idx, item);
+}
+
 function onMedInput(idx, val){
   const items = assessAnswers.meds.items;
   // ถ้าผู้ใช้พิมพ์ใหม่ไม่ตรงกับที่เคยเลือกไว้ ให้ล้างข้อมูลยาเดิมก่อน (เก็บแค่ข้อความที่พิมพ์)
   if(items[idx].name !== val){
-    items[idx] = {name: val, category:"", note:"", flag:""};
+    items[idx] = {name: val, category:"", note:"", flag:"", action:null, stopDays:null};
   }
   const noteBox = document.getElementById(`medNote-${idx}`);
   if(noteBox) noteBox.innerHTML = "";
+  refreshMedActionArea(idx);
 
   const suggestBox = document.getElementById(`medSuggest-${idx}`);
   const matches = findDrugMatches(val);
@@ -618,11 +679,12 @@ function onMedInput(idx, val){
 function selectMed(idx, name){
   const drug = DRUG_DB.find(d=>d.name===name);
   if(!drug) return;
-  assessAnswers.meds.items[idx] = {name: drug.name, category: drug.category, note: drug.note, flag: drug.flag};
+  assessAnswers.meds.items[idx] = {name: drug.name, category: drug.category, note: drug.note, flag: drug.flag, action:null, stopDays:null};
   const input = document.getElementById(`medInput-${idx}`);
   if(input) input.value = drug.name;
   const noteBox = document.getElementById(`medNote-${idx}`);
   if(noteBox) noteBox.innerHTML = renderMedNoteHtml(drug);
+  refreshMedActionArea(idx);
   hideMedSuggest(idx);
 }
 
@@ -648,7 +710,67 @@ function nextAssessStep(){
     state.assessment = JSON.parse(JSON.stringify(assessAnswers));
     saveState();
     renderAssessSummary(state.assessment);
+    renderHome();
+    renderTimeline();
   }
+}
+
+function medActionLabel(m){
+  if(m.action === "continue") return "กินต่อได้ถึงเช้าวันผ่าตัด";
+  if(m.action === "stopMorning") return "หยุดเช้าวันผ่าตัด";
+  if(m.action === "stopDays" && m.stopDays) return `หยุดล่วงหน้า ${m.stopDays} วันก่อนผ่าตัด`;
+  return "";
+}
+
+/** จับคู่ "หยุดล่วงหน้ากี่วัน" เข้ากับหมวดใน Timeline ที่ใกล้เคียงที่สุด */
+function stageKeyForStopDays(days){
+  if(days >= 7) return "d7";
+  if(days >= 4) return "d3";
+  if(days >= 2) return "d1";
+  if(days === 1) return "night";
+  return null;
+}
+
+/** รายการยาที่ควรแสดงเตือนในการ์ดของแต่ละ stage บน Timeline */
+function getMedItemsForStage(stageKey){
+  if(!state.assessment || !state.assessment.meds) return [];
+  const meds = (state.assessment.meds.items||[]).filter(m=>m.name && m.name.trim() && m.action);
+
+  if(stageKey === "morning"){
+    return meds.filter(m=>m.action==="stopMorning" || m.action==="continue").map(m=>({
+      icon: m.action==="stopMorning" ? "🚫" : "✅",
+      title: m.action==="stopMorning" ? `งดยา ${m.name}` : `กินยา ${m.name} ได้ตามปกติ`,
+      desc: m.action==="stopMorning" ? "งดรับประทานเช้าวันผ่าตัด ตามที่แพทย์สั่ง" : "รับประทานต่อได้ถึงเช้าวันผ่าตัด (จิบน้ำเปล่าเล็กน้อยได้)"
+    }));
+  }
+
+  return meds.filter(m=>m.action==="stopDays" && m.stopDays && stageKeyForStopDays(m.stopDays)===stageKey)
+    .map(m=>({
+      icon:"💊",
+      title:`หยุดยา ${m.name}`,
+      desc:`ตามแผนหยุดล่วงหน้า ${m.stopDays} วันก่อนผ่าตัด ตามที่แพทย์สั่ง`
+    }));
+}
+
+/** แจ้งเตือนเรื่องยาที่ตรงกับ "วันนี้" พอดี ใช้แสดงในการ์ด "วันนี้ควรทำ" หน้าแรก */
+function computeMedAlertsForToday(){
+  if(!state.surgeryDate || !state.assessment || !state.assessment.meds) return [];
+  const sd = new Date(state.surgeryDate); sd.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((sd - today)/86400000);
+
+  const meds = (state.assessment.meds.items||[]).filter(m=>m.name && m.name.trim() && m.action);
+  const alerts = [];
+  meds.forEach(m=>{
+    if(m.action === "stopDays" && m.stopDays && diff === m.stopDays){
+      alerts.push(`💊 วันนี้ควรหยุดยา ${m.name} ตามที่แพทย์แนะนำ (${m.stopDays} วันก่อนผ่าตัด)`);
+    } else if(m.action === "stopMorning" && diff === 0){
+      alerts.push(`💊 งดยา ${m.name} เช้านี้ (วันผ่าตัด)`);
+    } else if(m.action === "continue" && diff === 0){
+      alerts.push(`💊 กินยา ${m.name} ได้ตามปกติถึงเช้านี้`);
+    }
+  });
+  return alerts;
 }
 
 function renderAssessSummary(answers){
@@ -670,10 +792,11 @@ function renderAssessSummary(answers){
   if(answers.meds){
     const meds = (answers.meds.items||[]).filter(m=>m.name && m.name.trim());
     meds.forEach(m=>{
+      const actionText = medActionLabel(m);
       if(m.note){
-        flags.push({type: m.flag||"info", text:`${m.name} (${m.category}): ${m.note}`});
+        flags.push({type: m.flag||"info", text:`${m.name} (${m.category}): ${m.note}${actionText ? ` — <b>คำสั่งแพทย์: ${actionText}</b>` : ""}`});
       } else {
-        flags.push({type:"info", text:`${m.name}: ไม่พบข้อมูลยานี้ในฐานข้อมูล โปรดแจ้งชื่อยานี้กับวิสัญญีแพทย์โดยตรง`});
+        flags.push({type:"info", text:`${m.name}: ไม่พบข้อมูลยานี้ในฐานข้อมูล โปรดแจ้งชื่อยานี้กับวิสัญญีแพทย์โดยตรง${actionText ? ` — <b>คำสั่งแพทย์: ${actionText}</b>` : ""}`});
       }
     });
   }
@@ -703,6 +826,8 @@ function editAssessment(){
   state.assessment = null;
   saveState();
   renderAssessWizard();
+  renderHome();
+  renderTimeline();
 }
 
 function shareAssessment(){
@@ -717,7 +842,10 @@ function shareAssessment(){
   }
   if(answers.meds){
     const meds = (answers.meds.items||[]).filter(m=>m.name && m.name.trim());
-    text += `- ยาที่รับประทานประจำ: ${meds.length ? meds.map(m=>m.name).join(", ") : "ไม่มี"}\n`;
+    text += `- ยาที่รับประทานประจำ: ${meds.length ? meds.map(m=>{
+      const a = medActionLabel(m);
+      return a ? `${m.name} (${a})` : m.name;
+    }).join(", ") : "ไม่มี"}\n`;
   }
   ASSESS_STEPS.forEach(s=>{
     if(s.type==="multi" || s.type==="meds") return;

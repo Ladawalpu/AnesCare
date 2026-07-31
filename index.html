@@ -168,7 +168,7 @@
   .tl-head .caret{transition:transform .2s ease; color:var(--brand-500);}
   .tl-item.open .tl-head .caret{transform:rotate(180deg);}
   .tl-body{max-height:0; overflow:hidden; transition:max-height .3s ease;}
-  .tl-item.open .tl-body{max-height:600px;}
+  .tl-item.open .tl-body{max-height:1200px;}
   .tl-body-inner{padding:14px 16px 4px;}
   .tl-body-inner .row{display:flex; gap:10px; margin-bottom:12px;}
   .tl-body-inner .row .ic{font-size:18px; width:26px; flex-shrink:0; text-align:center;}
@@ -256,6 +256,16 @@
   .med-suggest-item:last-child{border-bottom:none;}
   .med-suggest-item:hover{background:var(--brand-100);}
   .med-suggest-item .cat{color:var(--ink-400); font-size:12px;}
+
+  .med-action-group{margin-top:12px; padding-top:10px; border-top:1px dashed var(--brand-200);}
+  .med-action-label{font-size:12px; font-weight:600; color:var(--ink-600);}
+  .seg-btn.small{padding:6px 11px; font-size:12.5px; border-radius:10px;}
+  .days-chip-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+
+  .tl-med-divider{
+    font-size:12px; font-weight:600; color:var(--brand-700);
+    margin:12px 0 8px; padding-top:10px; border-top:1px dashed var(--brand-200);
+  }
   textarea, .txt-input{
     width:100%; border:1.5px solid var(--brand-200); border-radius:12px; padding:11px 13px;
     font-family:'Sarabun'; font-size:14px; resize:vertical; outline:none;
