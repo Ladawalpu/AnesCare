@@ -461,12 +461,11 @@
       <div class="pills">
         <button class="pill active" data-sub="tl" onclick="switchSub('prepare','tl')">Timeline เตรียมตัว</button>
         <button class="pill" data-sub="cl" onclick="switchSub('prepare','cl')">Checklist วันผ่าตัด</button>
+        <button class="pill" data-sub="notes" onclick="switchSub('prepare','notes')">คำแนะนำจากแพทย์</button>
       </div>
 
       <div class="subview active" id="prepare-tl">
-        <div class="card" id="doctorNotesCard"></div>
         <div class="timeline" id="timelineList"></div>
-        <div id="doctorOtherNoteCard"></div>
       </div>
 
       <div class="subview" id="prepare-cl">
@@ -476,6 +475,10 @@
         </div>
         <div id="checklistItems"></div>
         <div id="checklistBanner"></div>
+      </div>
+
+      <div class="subview" id="prepare-notes">
+        <div class="card" id="doctorNotesCard"></div>
       </div>
     </section>
 

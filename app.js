@@ -434,67 +434,47 @@ function toggleTimeline(idx){
 }
 
 /* ---------------------------------------------------------------------- */
-/* คำแนะนำเฉพาะจากแพทย์ (พิมพ์เองโดยผู้ป่วย/ญาติ)                          */
+/* คำแนะนำเฉพาะจากแพทย์ (พิมพ์เองโดยผู้ป่วย/ญาติ) — แท็บย่อยในหน้าเตรียมตัว   */
 /* ---------------------------------------------------------------------- */
-
-let doctorNotesOpen = false;
 
 function renderDoctorNotesCard(){
   const el = document.getElementById("doctorNotesCard");
   if(!el) return;
   const n = state.doctorNotes || {};
 
-  const npoSet = n.npoDate && n.npoTime;
-  const relSet = n.relativeAccompany === true || n.relativeAccompany === false;
-  const summaryParts = [];
-  if(npoSet) summaryParts.push(`งดน้ำงดอาหาร ${formatThaiDateShort(n.npoDate)} ${n.npoTime} น.`);
-  if(relSet) summaryParts.push(n.relativeAccompany ? "พาญาติมาด้วย" : "ไม่ต้องพาญาติมา");
-  const summaryText = summaryParts.length ? summaryParts.join(" · ") : "แตะเพื่อบันทึกคำแนะนำที่ได้รับจากแพทย์";
-
   el.innerHTML = `
-    <div class="proc-head" onclick="toggleDoctorNotes()">
-      <div>
-        <span class="eyebrow">คำแนะนำเฉพาะจากแพทย์</span>
-        <div class="${summaryParts.length ? 'proc-selected-name' : 'muted'}" style="margin-top:4px;">${summaryText}</div>
-      </div>
-      <span class="caret proc-caret ${doctorNotesOpen?'open':''}">▾</span>
+    <span class="eyebrow">คำแนะนำเฉพาะจากแพทย์</span>
+    <p class="muted" style="margin-top:4px;">บันทึกคำสั่งเฉพาะที่ได้รับจากแพทย์/พยาบาลในวันตรวจ กันลืม</p>
+
+    <div class="disclaimer" style="margin-top:14px;">
+      ข้อมูลในส่วนนี้ <b>พิมพ์โดยผู้ป่วย/ญาติเอง</b> ตามที่ได้รับแจ้งจากแพทย์หรือพยาบาล เพื่อใช้เป็นบันทึกช่วยจำส่วนตัวเท่านั้น <b>ไม่ใช่คำสั่งแพทย์อย่างเป็นทางการ</b> หากข้อมูลคลาดเคลื่อนหรือไม่แน่ใจ โปรดยึดคำสั่งที่ได้รับจากโรงพยาบาลโดยตรงเป็นหลักเสมอ
     </div>
-    <div class="proc-body ${doctorNotesOpen?'open':''}">
-      <div class="disclaimer" style="margin-top:14px;">
-        ข้อมูลในส่วนนี้ <b>พิมพ์โดยผู้ป่วย/ญาติเอง</b> ตามที่ได้รับแจ้งจากแพทย์หรือพยาบาล เพื่อใช้เป็นบันทึกช่วยจำส่วนตัวเท่านั้น <b>ไม่ใช่คำสั่งแพทย์อย่างเป็นทางการ</b> หากข้อมูลคลาดเคลื่อนหรือไม่แน่ใจ โปรดยึดคำสั่งที่ได้รับจากโรงพยาบาลโดยตรงเป็นหลักเสมอ
-      </div>
 
-      <div class="field">
-        <label>งดน้ำงดอาหารตั้งแต่วันที่ / เวลา</label>
-        <div style="display:flex; gap:8px;">
-          <input type="date" class="txt-input" id="npoDateInput" value="${n.npoDate||''}" onchange="setDoctorNoteAndRerender('npoDate', this.value)">
-          <input type="time" class="txt-input" id="npoTimeInput" value="${n.npoTime||''}" onchange="setDoctorNoteAndRerender('npoTime', this.value)">
-        </div>
-        <textarea rows="2" class="txt-input" style="margin-top:8px;" placeholder="ข้อยกเว้น (ถ้ามี) เช่น จิบน้ำเปล่าได้ถึง 6 โมงเช้า" id="npoExceptionInput" oninput="setDoctorNoteField('npoException', this.value)">${n.npoException||''}</textarea>
+    <div class="field">
+      <label>งดน้ำงดอาหารตั้งแต่วันที่ / เวลา</label>
+      <div style="display:flex; gap:8px;">
+        <input type="date" class="txt-input" id="npoDateInput" value="${n.npoDate||''}" onchange="setDoctorNoteAndRerender('npoDate', this.value)">
+        <input type="time" class="txt-input" id="npoTimeInput" value="${n.npoTime||''}" onchange="setDoctorNoteAndRerender('npoTime', this.value)">
       </div>
+      <textarea rows="2" class="txt-input" style="margin-top:8px;" placeholder="ข้อยกเว้น (ถ้ามี) เช่น จิบน้ำเปล่าได้ถึง 6 โมงเช้า" id="npoExceptionInput" oninput="setDoctorNoteField('npoException', this.value)">${n.npoException||''}</textarea>
+    </div>
 
-      <div class="field">
-        <label>พาญาติมาด้วยในวันผ่าตัด</label>
-        <div class="seg">
-          <button class="seg-btn ${n.relativeAccompany===true?'sel':''}" onclick="setRelativeAccompany(true)">ต้องพามา</button>
-          <button class="seg-btn ${n.relativeAccompany===false?'sel':''}" onclick="setRelativeAccompany(false)">ไม่ต้อง</button>
-        </div>
-        ${n.relativeAccompany===true ? `
-          <textarea rows="2" class="txt-input" style="margin-top:8px;" placeholder="เช่น 1 คน สำหรับเซ็นยินยอมและรับตัวกลับ" id="relativeNoteInput" oninput="setDoctorNoteField('relativeNote', this.value)">${n.relativeNote||''}</textarea>
-        ` : ``}
+    <div class="field">
+      <label>พาญาติมาด้วยในวันผ่าตัด</label>
+      <div class="seg">
+        <button class="seg-btn ${n.relativeAccompany===true?'sel':''}" onclick="setRelativeAccompany(true)">ต้องพามา</button>
+        <button class="seg-btn ${n.relativeAccompany===false?'sel':''}" onclick="setRelativeAccompany(false)">ไม่ต้อง</button>
       </div>
+      ${n.relativeAccompany===true ? `
+        <textarea rows="2" class="txt-input" style="margin-top:8px;" placeholder="เช่น 1 คน สำหรับเซ็นยินยอมและรับตัวกลับ" id="relativeNoteInput" oninput="setDoctorNoteField('relativeNote', this.value)">${n.relativeNote||''}</textarea>
+      ` : ``}
+    </div>
 
-      <div class="field">
-        <label>คำแนะนำอื่นๆ จากแพทย์ (ถ้ามี)</label>
-        <textarea rows="3" class="txt-input" placeholder="พิมพ์คำแนะนำเพิ่มเติมที่ได้รับจากแพทย์/พยาบาล" id="otherNoteInput" oninput="setDoctorNoteField('otherText', this.value)">${n.otherText||''}</textarea>
-      </div>
+    <div class="field">
+      <label>คำแนะนำอื่นๆ จากแพทย์ (ถ้ามี)</label>
+      <textarea rows="3" class="txt-input" placeholder="พิมพ์คำแนะนำเพิ่มเติมที่ได้รับจากแพทย์/พยาบาล" id="otherNoteInput" oninput="setDoctorNoteField('otherText', this.value)">${n.otherText||''}</textarea>
     </div>
   `;
-}
-
-function toggleDoctorNotes(){
-  doctorNotesOpen = !doctorNotesOpen;
-  renderDoctorNotesCard();
 }
 
 /** สำหรับช่องพิมพ์ข้อความ (oninput ทุกตัวอักษร) — อัปเดตค่าและซิงก์ไปยัง Timeline/หน้าแรก โดยไม่ re-render การ์ดนี้เอง เพื่อไม่ให้ cursor หลุดระหว่างพิมพ์ */
@@ -522,7 +502,7 @@ function setRelativeAccompany(val){
   renderHome();
 }
 
-/** re-render เฉพาะรายการ Timeline (ไม่แตะการ์ดคำแนะนำแพทย์ที่อาจกำลังเปิดอยู่) */
+/** re-render รายการ Timeline (แทรกคำแนะนำแพทย์เข้าไปในการ์ดที่เกี่ยวข้องโดยอัตโนมัติ) */
 function renderTimelineContentOnly(){
   const el = document.getElementById("timelineList");
   if(!el) return;
@@ -556,19 +536,6 @@ function renderTimelineContentOnly(){
     </div>
   `;
   }).join("");
-  renderDoctorOtherNoteCard();
-}
-
-function renderDoctorOtherNoteCard(){
-  const el = document.getElementById("doctorOtherNoteCard");
-  if(!el) return;
-  const text = (state.doctorNotes && state.doctorNotes.otherText || "").trim();
-  el.innerHTML = text ? `
-    <div class="card" style="margin-top:4px;">
-      <span class="eyebrow">คำแนะนำอื่นๆ จากแพทย์</span>
-      <p class="muted" style="margin-top:6px; white-space:pre-wrap;">${text}</p>
-    </div>
-  ` : "";
 }
 
 function renderChecklist(){
