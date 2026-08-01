@@ -36,6 +36,7 @@ function loadState(){
   return {
     surgeryDate: null,
     procedure: null,
+    textScale: "normal",
     checklist: {},
     assessment: null,
     feedbackHistory: []
@@ -128,6 +129,55 @@ const FAQ = [
 /* ---------------------------------------------------------------------- */
 
 const TABS = ["home","prepare","assess","learn","contact"];
+
+/**
+ * ปรับขนาดตัวอักษร/เนื้อหาทั้งแอปให้ใหญ่ขึ้นได้ตามต้องการ (การเข้าถึงสำหรับผู้สูงอายุ)
+ * ใช้ CSS zoom กับ .views เท่านั้น (ไม่รวม topbar/bottomnav) เพื่อไม่ให้กระทบตำแหน่งเมนูด้านล่างที่ fixed อยู่
+ */
+const TEXT_SCALES = [
+  {key:"normal", label:"ปกติ", value:1},
+  {key:"large", label:"ใหญ่", value:1.15},
+  {key:"xlarge", label:"ใหญ่มาก", value:1.3},
+];
+
+function applyTextScale(){
+  const current = TEXT_SCALES.find(t=>t.key===(state.textScale||"normal")) || TEXT_SCALES[0];
+  const viewsEl = document.querySelector(".views");
+  if(viewsEl) viewsEl.style.zoom = current.value;
+}
+
+function renderTextSizeMenu(){
+  const el = document.getElementById("textSizeMenu");
+  if(!el) return;
+  const current = state.textScale || "normal";
+  el.innerHTML = TEXT_SCALES.map(t=>`
+    <div class="text-size-option ${current===t.key?'active':''}" onclick="setTextScale('${t.key}')">${t.label}</div>
+  `).join("");
+}
+
+function setTextScale(key){
+  state.textScale = key;
+  saveState();
+  applyTextScale();
+  renderTextSizeMenu();
+  const menu = document.getElementById("textSizeMenu");
+  if(menu) menu.classList.remove("open");
+}
+
+function toggleTextSizeMenu(e){
+  if(e) e.stopPropagation();
+  const menu = document.getElementById("textSizeMenu");
+  if(menu) menu.classList.toggle("open");
+}
+
+document.addEventListener("click", (e)=>{
+  const menu = document.getElementById("textSizeMenu");
+  const btn = document.getElementById("textSizeBtn");
+  if(menu && menu.classList.contains("open") && !menu.contains(e.target) && e.target!==btn){
+    menu.classList.remove("open");
+  }
+});
+
 
 function goTo(tab, sub){
   TABS.forEach(t=>{
@@ -780,12 +830,19 @@ function computeMedAlertsForToday(){
   const meds = (state.assessment.meds.items||[]).filter(m=>m.name && m.name.trim() && m.action);
   const alerts = [];
   meds.forEach(m=>{
-    if(m.action === "stopDays" && m.stopDays && diff === m.stopDays){
-      alerts.push(`💊 วันนี้ควรหยุดยา ${m.name} ตามที่แพทย์แนะนำ (${m.stopDays} วันก่อนผ่าตัด)`);
+    if(m.action === "stopDays" && m.stopDays){
+      if(diff === m.stopDays){
+        alerts.push(`💊 วันนี้ควรหยุดยา ${m.name} ตามที่แพทย์แนะนำ (${m.stopDays} วันก่อนผ่าตัด)`);
+      } else if(diff >= 0 && diff < m.stopDays){
+        // ผ่านวันที่ควรหยุดมาแล้ว แต่ยังไม่ถึงวันผ่าตัด — เตือนซ้ำทุกวันกันลืม/กันพลาด
+        alerts.push(`💊 ยา ${m.name} ควรหยุดไปแล้วตั้งแต่ ${m.stopDays} วันก่อนผ่าตัด (โปรดตรวจสอบว่าหยุดแล้ว)`);
+      }
     } else if(m.action === "stopMorning" && diff === 0){
       alerts.push(`💊 งดยา ${m.name} เช้านี้ (วันผ่าตัด)`);
-    } else if(m.action === "continue" && diff === 0){
-      alerts.push(`💊 กินยา ${m.name} ได้ตามปกติถึงเช้านี้`);
+    } else if(m.action === "continue" && diff >= 0 && diff <= 3){
+      alerts.push(diff === 0
+        ? `💊 กินยา ${m.name} ได้ตามปกติถึงเช้านี้`
+        : `💊 กินยา ${m.name} ตามปกติต่อไปได้ถึงเช้าวันผ่าตัด`);
     }
   });
   return alerts;
@@ -1048,6 +1105,8 @@ function renderHistory(){
 /* ---------------------------------------------------------------------- */
 
 function init(){
+  applyTextScale();
+  renderTextSizeMenu();
   renderHome();
   renderTimeline();
   renderChecklist();
