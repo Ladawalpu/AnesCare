@@ -266,6 +266,13 @@
     font-size:12px; font-weight:600; color:var(--brand-700);
     margin:12px 0 8px; padding-top:10px; border-top:1px dashed var(--brand-200);
   }
+
+  .proc-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; cursor:pointer;}
+  .proc-head .proc-caret{color:var(--brand-500); transition:transform .2s ease; flex-shrink:0; margin-top:3px;}
+  .proc-head .proc-caret.open{transform:rotate(180deg);}
+  .proc-selected-name{font-family:'Kanit'; font-weight:600; font-size:14.5px; color:var(--ink-900); margin-top:4px;}
+  .proc-body{max-height:0; overflow:hidden; transition:max-height .3s ease;}
+  .proc-body.open{max-height:700px; margin-top:14px;}
   textarea, .txt-input{
     width:100%; border:1.5px solid var(--brand-200); border-radius:12px; padding:11px 13px;
     font-family:'Sarabun'; font-size:14px; resize:vertical; outline:none;

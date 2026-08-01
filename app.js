@@ -232,6 +232,8 @@ function renderHome(){
   renderProcedureCard();
 }
 
+let procedureCardOpen = false;
+
 function renderProcedureCard(){
   const el = document.getElementById("procedureCard");
   if(!el) return;
@@ -242,26 +244,41 @@ function renderProcedureCard(){
   `).join("");
 
   el.innerHTML = `
-    <span class="eyebrow">หัตถการ/การผ่าตัดที่จะเข้ารับบริการ</span>
-    <div class="custom-select" id="procedureCustomSelect">
-      <button type="button" class="custom-select-trigger ${selected?'':'placeholder'}" onclick="toggleProcedureDropdown(event)">
-        <span>${selected ? selected.name : "— เลือกรายการ —"}</span>
-        <span class="caret">▾</span>
-      </button>
-      <div class="custom-select-list" id="procedureDropdownList">
-        <div class="custom-select-item ${!selected?'active':''}" onclick="selectProcedure('')">— เลือกรายการ —</div>
-        ${itemsHtml}
+    <div class="proc-head" onclick="toggleProcedureCard()">
+      <div>
+        <span class="eyebrow">หัตถการ/การผ่าตัดที่จะเข้ารับบริการ</span>
+        ${selected
+          ? `<div class="proc-selected-name">${selected.name}</div>`
+          : `<div class="muted" style="margin-top:4px;">แตะเพื่อเลือกรายการ</div>`}
       </div>
+      <span class="caret proc-caret ${procedureCardOpen?'open':''}">▾</span>
     </div>
-    ${selected ? `
-      <div class="summary-flag info" style="margin-top:12px;">
-        <b>เกี่ยวกับหัตถการนี้</b><br>${selected.desc}
+    <div class="proc-body ${procedureCardOpen?'open':''}">
+      <div class="custom-select" id="procedureCustomSelect">
+        <button type="button" class="custom-select-trigger ${selected?'':'placeholder'}" onclick="toggleProcedureDropdown(event)">
+          <span>${selected ? selected.name : "— เลือกรายการ —"}</span>
+          <span class="caret">▾</span>
+        </button>
+        <div class="custom-select-list" id="procedureDropdownList">
+          <div class="custom-select-item ${!selected?'active':''}" onclick="selectProcedure('')">— เลือกรายการ —</div>
+          ${itemsHtml}
+        </div>
       </div>
-      <div class="summary-flag warn" style="margin-top:8px;">
-        <b>การปฏิบัติตัว</b><br>${selected.care}
-      </div>
-    ` : `<p class="muted" style="margin-top:8px;">เลือกรายการเพื่อดูคำอธิบายและวิธีปฏิบัติตัวเฉพาะของหัตถการนั้นๆ</p>`}
+      ${selected ? `
+        <div class="summary-flag info" style="margin-top:12px;">
+          <b>เกี่ยวกับหัตถการนี้</b><br>${selected.desc}
+        </div>
+        <div class="summary-flag warn" style="margin-top:8px;">
+          <b>การปฏิบัติตัว</b><br>${selected.care}
+        </div>
+      ` : `<p class="muted" style="margin-top:8px;">เลือกรายการเพื่อดูคำอธิบายและวิธีปฏิบัติตัวเฉพาะของหัตถการนั้นๆ</p>`}
+    </div>
   `;
+}
+
+function toggleProcedureCard(){
+  procedureCardOpen = !procedureCardOpen;
+  renderProcedureCard();
 }
 
 function toggleProcedureDropdown(e){
@@ -283,6 +300,7 @@ document.addEventListener("click", (e)=>{
     wrap.classList.remove("open");
   }
 });
+
 
 function setSurgeryDate(){
   const v = document.getElementById("surgeryDateInput").value;
