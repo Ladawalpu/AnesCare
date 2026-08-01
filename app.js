@@ -29,18 +29,28 @@ function sendToSheet(sheetType, payload){
 const LS_KEY = "anescare_state_v1";
 
 function loadState(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(raw) return JSON.parse(raw);
-  }catch(e){}
-  return {
+  const defaults = {
     surgeryDate: null,
     procedure: null,
     textScale: "normal",
+    doctorNotes: { npoDate:null, npoTime:null, npoException:"", relativeAccompany:null, relativeNote:"", otherText:"" },
     checklist: {},
     assessment: null,
     feedbackHistory: []
   };
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const saved = JSON.parse(raw);
+      // merge เผื่อผู้ใช้เดิมมี state ที่บันทึกไว้ก่อนฟีเจอร์ใหม่นี้จะถูกเพิ่มเข้ามา
+      return {
+        ...defaults,
+        ...saved,
+        doctorNotes: { ...defaults.doctorNotes, ...(saved.doctorNotes||{}) }
+      };
+    }
+  }catch(e){}
+  return defaults;
 }
 function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
@@ -275,6 +285,7 @@ function renderHome(){
   const stage = TIMELINE.find(s=>s.key===stageKey);
   let todoItems = (stage && diffDays >= 0) ? stage.items.map(i=>i[1]) : [];
   todoItems = todoItems.concat(computeMedAlertsForToday());
+  todoItems = todoItems.concat(computeNpoAlertForToday());
 
   if(todoItems.length){
     todoCard.style.display = "block";
@@ -385,10 +396,139 @@ function renderProgress(){
 /* PREPARE — TIMELINE + CHECKLIST                                         */
 /* ---------------------------------------------------------------------- */
 
+const THAI_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function formatThaiDateShort(iso){
+  if(!iso) return "";
+  const d = new Date(iso+"T00:00:00");
+  if(isNaN(d.getTime())) return "";
+  return `${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** แทรกคำแนะนำเฉพาะจากแพทย์ (ที่ผู้ป่วย/ญาติพิมพ์เอง) เข้าไปแทนที่/เสริมเนื้อหาทั่วไปของ stage ที่เกี่ยวข้อง */
+function getStageItemsOverridden(stage){
+  let items = stage.items.slice();
+  const n = state.doctorNotes || {};
+
+  if(stage.key === "night" && n.npoDate && n.npoTime){
+    let desc = `งดน้ำงดอาหารตั้งแต่เวลา ${n.npoTime} น. วันที่ ${formatThaiDateShort(n.npoDate)} ตามที่แพทย์แจ้ง (พิมพ์โดยผู้ป่วย/ญาติ)`;
+    if(n.npoException && n.npoException.trim()) desc += ` — ${n.npoException.trim()}`;
+    items = items.map(i => i[1]==="งดน้ำงดอาหาร (NPO)" ? ["🚫","งดน้ำงดอาหาร (NPO)", desc] : i);
+  }
+
+  if(stage.key === "morning" && (n.relativeAccompany === true || n.relativeAccompany === false)){
+    const desc = n.relativeAccompany
+      ? `แพทย์แจ้งให้พาญาติมาด้วย${n.relativeNote && n.relativeNote.trim() ? ` — ${n.relativeNote.trim()}` : ""} (พิมพ์โดยผู้ป่วย/ญาติ)`
+      : "ไม่จำเป็นต้องพาญาติมาด้วยตามที่แพทย์แจ้ง (พิมพ์โดยผู้ป่วย/ญาติ)";
+    items = items.concat([["👪","พาญาติมาด้วย", desc]]);
+  }
+
+  return items;
+}
+
 function renderTimeline(){
+  renderDoctorNotesCard();
+  renderTimelineContentOnly();
+}
+function toggleTimeline(idx){
+  document.querySelectorAll(`#timelineList .tl-item`)[idx].classList.toggle("open");
+}
+
+/* ---------------------------------------------------------------------- */
+/* คำแนะนำเฉพาะจากแพทย์ (พิมพ์เองโดยผู้ป่วย/ญาติ)                          */
+/* ---------------------------------------------------------------------- */
+
+let doctorNotesOpen = false;
+
+function renderDoctorNotesCard(){
+  const el = document.getElementById("doctorNotesCard");
+  if(!el) return;
+  const n = state.doctorNotes || {};
+
+  const npoSet = n.npoDate && n.npoTime;
+  const relSet = n.relativeAccompany === true || n.relativeAccompany === false;
+  const summaryParts = [];
+  if(npoSet) summaryParts.push(`งดน้ำงดอาหาร ${formatThaiDateShort(n.npoDate)} ${n.npoTime} น.`);
+  if(relSet) summaryParts.push(n.relativeAccompany ? "พาญาติมาด้วย" : "ไม่ต้องพาญาติมา");
+  const summaryText = summaryParts.length ? summaryParts.join(" · ") : "แตะเพื่อบันทึกคำแนะนำที่ได้รับจากแพทย์";
+
+  el.innerHTML = `
+    <div class="proc-head" onclick="toggleDoctorNotes()">
+      <div>
+        <span class="eyebrow">คำแนะนำเฉพาะจากแพทย์</span>
+        <div class="${summaryParts.length ? 'proc-selected-name' : 'muted'}" style="margin-top:4px;">${summaryText}</div>
+      </div>
+      <span class="caret proc-caret ${doctorNotesOpen?'open':''}">▾</span>
+    </div>
+    <div class="proc-body ${doctorNotesOpen?'open':''}">
+      <div class="disclaimer" style="margin-top:14px;">
+        ข้อมูลในส่วนนี้ <b>พิมพ์โดยผู้ป่วย/ญาติเอง</b> ตามที่ได้รับแจ้งจากแพทย์หรือพยาบาล เพื่อใช้เป็นบันทึกช่วยจำส่วนตัวเท่านั้น <b>ไม่ใช่คำสั่งแพทย์อย่างเป็นทางการ</b> หากข้อมูลคลาดเคลื่อนหรือไม่แน่ใจ โปรดยึดคำสั่งที่ได้รับจากโรงพยาบาลโดยตรงเป็นหลักเสมอ
+      </div>
+
+      <div class="field">
+        <label>งดน้ำงดอาหารตั้งแต่วันที่ / เวลา</label>
+        <div style="display:flex; gap:8px;">
+          <input type="date" class="txt-input" id="npoDateInput" value="${n.npoDate||''}" onchange="setDoctorNoteAndRerender('npoDate', this.value)">
+          <input type="time" class="txt-input" id="npoTimeInput" value="${n.npoTime||''}" onchange="setDoctorNoteAndRerender('npoTime', this.value)">
+        </div>
+        <textarea rows="2" class="txt-input" style="margin-top:8px;" placeholder="ข้อยกเว้น (ถ้ามี) เช่น จิบน้ำเปล่าได้ถึง 6 โมงเช้า" id="npoExceptionInput" oninput="setDoctorNoteField('npoException', this.value)">${n.npoException||''}</textarea>
+      </div>
+
+      <div class="field">
+        <label>พาญาติมาด้วยในวันผ่าตัด</label>
+        <div class="seg">
+          <button class="seg-btn ${n.relativeAccompany===true?'sel':''}" onclick="setRelativeAccompany(true)">ต้องพามา</button>
+          <button class="seg-btn ${n.relativeAccompany===false?'sel':''}" onclick="setRelativeAccompany(false)">ไม่ต้อง</button>
+        </div>
+        ${n.relativeAccompany===true ? `
+          <textarea rows="2" class="txt-input" style="margin-top:8px;" placeholder="เช่น 1 คน สำหรับเซ็นยินยอมและรับตัวกลับ" id="relativeNoteInput" oninput="setDoctorNoteField('relativeNote', this.value)">${n.relativeNote||''}</textarea>
+        ` : ``}
+      </div>
+
+      <div class="field">
+        <label>คำแนะนำอื่นๆ จากแพทย์ (ถ้ามี)</label>
+        <textarea rows="3" class="txt-input" placeholder="พิมพ์คำแนะนำเพิ่มเติมที่ได้รับจากแพทย์/พยาบาล" id="otherNoteInput" oninput="setDoctorNoteField('otherText', this.value)">${n.otherText||''}</textarea>
+      </div>
+    </div>
+  `;
+}
+
+function toggleDoctorNotes(){
+  doctorNotesOpen = !doctorNotesOpen;
+  renderDoctorNotesCard();
+}
+
+/** สำหรับช่องพิมพ์ข้อความ (oninput ทุกตัวอักษร) — อัปเดตค่าและซิงก์ไปยัง Timeline/หน้าแรก โดยไม่ re-render การ์ดนี้เอง เพื่อไม่ให้ cursor หลุดระหว่างพิมพ์ */
+function setDoctorNoteField(key, val){
+  state.doctorNotes[key] = val;
+  saveState();
+  renderTimelineContentOnly();
+  renderHome();
+}
+
+/** สำหรับปุ่ม/วันที่/เวลา (คอมมิทค่าทีเดียว ไม่ใช่ทุกตัวอักษร) — ปลอดภัยที่จะ re-render การ์ดทั้งหมด */
+function setDoctorNoteAndRerender(key, val){
+  state.doctorNotes[key] = val;
+  saveState();
+  renderDoctorNotesCard();
+  renderTimelineContentOnly();
+  renderHome();
+}
+
+function setRelativeAccompany(val){
+  state.doctorNotes.relativeAccompany = val;
+  saveState();
+  renderDoctorNotesCard();
+  renderTimelineContentOnly();
+  renderHome();
+}
+
+/** re-render เฉพาะรายการ Timeline (ไม่แตะการ์ดคำแนะนำแพทย์ที่อาจกำลังเปิดอยู่) */
+function renderTimelineContentOnly(){
   const el = document.getElementById("timelineList");
+  if(!el) return;
   el.innerHTML = TIMELINE.map((stage, idx)=>{
     const medItems = getMedItemsForStage(stage.key);
+    const items = getStageItemsOverridden(stage);
     return `
     <div class="tl-item" data-idx="${idx}">
       <div class="tl-dot"></div>
@@ -398,7 +538,7 @@ function renderTimeline(){
       </div>
       <div class="tl-body">
         <div class="tl-body-inner">
-          ${stage.items.map(i=>`
+          ${items.map(i=>`
             <div class="row">
               <div class="ic">${i[0]}</div>
               <div class="txt"><b>${i[1]}</b><span>${i[2]}</span></div>
@@ -416,9 +556,19 @@ function renderTimeline(){
     </div>
   `;
   }).join("");
+  renderDoctorOtherNoteCard();
 }
-function toggleTimeline(idx){
-  document.querySelectorAll(`#timelineList .tl-item`)[idx].classList.toggle("open");
+
+function renderDoctorOtherNoteCard(){
+  const el = document.getElementById("doctorOtherNoteCard");
+  if(!el) return;
+  const text = (state.doctorNotes && state.doctorNotes.otherText || "").trim();
+  el.innerHTML = text ? `
+    <div class="card" style="margin-top:4px;">
+      <span class="eyebrow">คำแนะนำอื่นๆ จากแพทย์</span>
+      <p class="muted" style="margin-top:6px; white-space:pre-wrap;">${text}</p>
+    </div>
+  ` : "";
 }
 
 function renderChecklist(){
@@ -827,6 +977,18 @@ function getMedItemsForStage(stageKey){
 }
 
 /** แจ้งเตือนเรื่องยาที่ตรงกับ "วันนี้" พอดี ใช้แสดงในการ์ด "วันนี้ควรทำ" หน้าแรก */
+/** แจ้งเตือนเรื่องงดน้ำงดอาหาร (ตามที่ผู้ป่วย/ญาติพิมพ์บันทึกไว้เอง) ที่ตรงกับวันนี้พอดี */
+function computeNpoAlertForToday(){
+  const n = state.doctorNotes;
+  if(!n || !n.npoDate || !n.npoTime) return [];
+  const npoDateOnly = n.npoDate;
+  const todayIso = new Date().toISOString().slice(0,10);
+  if(npoDateOnly !== todayIso) return [];
+  let msg = `🚫 งดน้ำงดอาหารตั้งแต่เวลา ${n.npoTime} น. วันนี้ (ตามที่บันทึกไว้)`;
+  if(n.npoException && n.npoException.trim()) msg += ` — ${n.npoException.trim()}`;
+  return [msg];
+}
+
 function computeMedAlertsForToday(){
   if(!state.surgeryDate || !state.assessment || !state.assessment.meds) return [];
   const sd = new Date(state.surgeryDate); sd.setHours(0,0,0,0);
