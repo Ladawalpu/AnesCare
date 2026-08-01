@@ -55,6 +55,10 @@ const TIMELINE = [
     ["💊","ยาที่ต้องหยุด","แจ้งวิสัญญีแพทย์เรื่องยาละลายลิ่มเลือด/ยาต้านเกล็ดเลือด และอาหารเสริม/สมุนไพรที่รับประทานอยู่ทั้งหมด บางชนิดต้องหยุดล่วงหน้า 5-7 วัน"],
     ["📋","วิธีเตรียมตัว","พักผ่อนให้เพียงพอ งดสูบบุหรี่และแอลกอฮอล์เพื่อลดความเสี่ยงระหว่างดมยาสลบ"],
   ]},
+  { when:"5 วันก่อนผ่าตัด", key:"d5", items:[
+    ["💊","ตรวจสอบยาที่ต้องหยุด","ยาบางชนิด เช่น ยาต้านเกล็ดเลือดบางตัว อาจต้องเริ่มหยุดตั้งแต่วันนี้ตามที่แพทย์สั่ง โปรดตรวจสอบรายการยาที่บันทึกไว้ในหน้าประเมินความเสี่ยงอีกครั้ง"],
+    ["📞","ติดต่อสอบถามหากไม่แน่ใจ","หากไม่แน่ใจว่ายาตัวใดต้องหยุดวันไหน สามารถติดต่อสอบถามทีมวิสัญญีได้ที่แท็บ ติดต่อ/แจ้งกลับ"],
+  ]},
   { when:"3 วันก่อนผ่าตัด", key:"d3", items:[
     ["💊","ยาที่รับประทานต่อ","ยาโรคประจำตัวส่วนใหญ่ (เช่น ความดัน หัวใจ) มักให้กินต่อตามปกติ ยกเว้นแพทย์สั่งให้หยุด"],
     ["🩺","ตรวจสอบสุขภาพทั่วไป","สังเกตอาการไข้ ไอ หวัด หากไม่สบายควรแจ้งเจ้าหน้าที่ก่อนถึงวันนัด"],
@@ -262,8 +266,9 @@ function renderHome(){
   // Today todo based on nearest timeline stage
   let stageKey = null;
   if(diffDays >= 7) stageKey = "d7";
-  else if(diffDays >= 4) stageKey = "d3";
-  else if(diffDays === 2 || diffDays===1) stageKey = "d1";
+  else if(diffDays === 5 || diffDays === 6) stageKey = "d5";
+  else if(diffDays === 3 || diffDays === 4) stageKey = "d3";
+  else if(diffDays === 2) stageKey = "d1";
   else if(diffDays === 0) stageKey = "morning";
   if(diffDays === 1) stageKey = "night";
 
@@ -793,8 +798,9 @@ function medActionLabel(m){
 /** จับคู่ "หยุดล่วงหน้ากี่วัน" เข้ากับหมวดใน Timeline ที่ใกล้เคียงที่สุด */
 function stageKeyForStopDays(days){
   if(days >= 7) return "d7";
-  if(days >= 4) return "d3";
-  if(days >= 2) return "d1";
+  if(days === 5 || days === 6) return "d5";
+  if(days === 3 || days === 4) return "d3";
+  if(days === 2) return "d1";
   if(days === 1) return "night";
   return null;
 }
@@ -837,8 +843,12 @@ function computeMedAlertsForToday(){
         // ผ่านวันที่ควรหยุดมาแล้ว แต่ยังไม่ถึงวันผ่าตัด — เตือนซ้ำทุกวันกันลืม/กันพลาด
         alerts.push(`💊 ยา ${m.name} ควรหยุดไปแล้วตั้งแต่ ${m.stopDays} วันก่อนผ่าตัด (โปรดตรวจสอบว่าหยุดแล้ว)`);
       }
-    } else if(m.action === "stopMorning" && diff === 0){
-      alerts.push(`💊 งดยา ${m.name} เช้านี้ (วันผ่าตัด)`);
+    } else if(m.action === "stopMorning"){
+      if(diff === 0){
+        alerts.push(`💊 งดยา ${m.name} เช้านี้ (วันผ่าตัด)`);
+      } else if(diff > 0 && diff <= 3){
+        alerts.push(`💊 กินยา ${m.name} ได้ตามปกติวันนี้ (จะงดเฉพาะเช้าวันผ่าตัดเท่านั้น)`);
+      }
     } else if(m.action === "continue" && diff >= 0 && diff <= 3){
       alerts.push(diff === 0
         ? `💊 กินยา ${m.name} ได้ตามปกติถึงเช้านี้`
