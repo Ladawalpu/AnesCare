@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>ดมยาแคร์ | AnesCare</title>
 <meta name="description" content="แอปเตรียมความพร้อมก่อน-หลังการระงับความรู้สึก">
-<meta name="theme-color" content="#0097B2">
+<meta name="theme-color" content="#59757C">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -14,29 +14,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --brand-900:#005E73;
-    --brand-800:#0097B2;
-    --brand-700:#14A9C2;
-    --brand-500:#5FC0D2;
-    --brand-200:#CDEEF3;
-    --brand-100:#EAF8FA;
-    --lavender-bg:#F2FAFB;
-    --teal-500:#2DBFA7;
-    --teal-100:#DEF6F1;
-    --pink-500:#F472B6;
-    --pink-100:#FDE6F0;
+    --brand-900:#475D63;
+    --brand-800:#59757C;
+    --brand-700:#7498A2;
+    --brand-500:#95C3D0;
+    --brand-200:#CFE4E9;
+    --brand-100:#E9F3F5;
+    --lavender-bg:#FCF8F5;
+    --teal-500:#6FAE9C;
+    --teal-100:#E3EFEC;
+    --pink-500:#F3B9B8;
+    --pink-100:#FCEDED;
     --red-600:#DC2626;
     --red-100:#FDECEC;
     --amber-500:#F59E0B;
-    --ink-900:#182B30;
-    --ink-600:#4C6B72;
-    --ink-400:#82A0A6;
+    --ink-900:#2A2422;
+    --ink-600:#6B5F5A;
+    --ink-400:#A79C97;
     --white:#FFFFFF;
     --radius-lg:22px;
     --radius-md:16px;
     --radius-sm:10px;
-    --shadow-card: 0 6px 20px rgba(0,105,127,0.08);
-    --shadow-pop: 0 12px 32px rgba(0,105,127,0.18);
+    --shadow-card: 0 6px 20px rgba(89,117,124,0.10);
+    --shadow-pop: 0 12px 32px rgba(89,117,124,0.20);
   }
 
   *{box-sizing:border-box;}
@@ -88,6 +88,7 @@
   }
   .text-size-menu{
     position:absolute; top:100%; right:0; margin-top:8px; background:#fff; border-radius:14px;
+    border-top:3px solid var(--brand-700);
     box-shadow:var(--shadow-pop); padding:8px; display:none; z-index:25; min-width:130px;
   }
   .text-size-menu.open{display:block;}
@@ -230,7 +231,7 @@
   .qa-q .caret{color:var(--brand-500); transition:transform .2s ease;}
   .qa-card.open .qa-q .caret{transform:rotate(180deg);}
   .qa-a{max-height:0; overflow:hidden; transition:max-height .3s ease;}
-  .qa-card.open .qa-a{max-height:400px;}
+  .qa-card.open .qa-a{max-height:3000px;}
   .qa-a-inner{padding:0 16px 16px 46px; font-size:13.5px; color:var(--ink-600); line-height:1.65;}
 
   .danger-box{
@@ -262,9 +263,14 @@
   .med-row{position:relative; margin-bottom:18px;}
   .med-row:last-child{margin-bottom:0;}
   .med-row-label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-900); margin-bottom:6px;}
+  .autocomplete-input{
+    background:var(--brand-100) !important;
+    border-color:var(--brand-200) !important;
+  }
+  .autocomplete-input:focus{border-color:var(--brand-700) !important;}
   .med-suggest{
     position:absolute; left:0; right:0; top:100%; margin-top:4px; background:#fff;
-    border:1.5px solid var(--brand-200); border-radius:12px; box-shadow:var(--shadow-pop);
+    border:1.5px solid var(--brand-200); border-top:3px solid var(--brand-700); border-radius:12px; box-shadow:var(--shadow-pop);
     max-height:190px; overflow-y:auto; z-index:6; display:none;
   }
   .med-suggest.show{display:block;}
@@ -298,16 +304,16 @@
   .custom-select-trigger{
     width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px;
     border:1.5px solid var(--brand-200); border-radius:12px; padding:11px 13px;
-    font-family:'Sarabun'; font-size:14px; background:#fff; cursor:pointer; color:var(--ink-900);
+    font-family:'Sarabun'; font-size:14px; background:var(--brand-100); cursor:pointer; color:var(--ink-900);
     text-align:left;
   }
   .custom-select-trigger.placeholder{color:var(--ink-400);}
-  .custom-select-trigger .caret{color:var(--ink-400); transition:transform .2s ease; flex-shrink:0; font-size:12px;}
+  .custom-select-trigger .caret{color:var(--brand-700); transition:transform .2s ease; flex-shrink:0; font-size:12px;}
   .custom-select.open .custom-select-trigger{border-color:var(--brand-700);}
   .custom-select.open .custom-select-trigger .caret{transform:rotate(180deg);}
   .custom-select-list{
     position:absolute; left:0; right:0; top:100%; margin-top:6px; background:#fff;
-    border:1.5px solid var(--brand-200); border-radius:14px; box-shadow:var(--shadow-pop);
+    border:1.5px solid var(--brand-200); border-top:3px solid var(--brand-700); border-radius:14px; box-shadow:var(--shadow-pop);
     max-height:280px; overflow-y:auto; z-index:15; display:none;
   }
   .custom-select.open .custom-select-list{display:block;}
@@ -495,12 +501,14 @@
     <section class="view" id="view-learn">
       <div class="pills">
         <button class="pill active" data-sub="qa" onclick="switchSub('learn','qa')">รู้จักการดมยาสลบ</button>
+        <button class="pill" data-sub="prep" onclick="switchSub('learn','prep')">เตรียมตัวเฉพาะหัตถการ</button>
         <button class="pill" data-sub="post" onclick="switchSub('learn','post')">หลังผ่าตัด</button>
         <button class="pill" data-sub="home2" onclick="switchSub('learn','home2')">เมื่อกลับบ้าน</button>
         <button class="pill" data-sub="faq" onclick="switchSub('learn','faq')">FAQ</button>
       </div>
 
       <div class="subview active" id="learn-qa"></div>
+      <div class="subview" id="learn-prep"></div>
       <div class="subview" id="learn-post"></div>
       <div class="subview" id="learn-home2"></div>
       <div class="subview" id="learn-faq">
@@ -597,8 +605,8 @@
 <svg width="0" height="0" style="position:absolute;">
   <defs>
     <linearGradient id="gradBrand" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5FC0D2"/>
-      <stop offset="100%" stop-color="#0097B2"/>
+      <stop offset="0%" stop-color="#95C3D0"/>
+      <stop offset="100%" stop-color="#59757C"/>
     </linearGradient>
   </defs>
 </svg>
